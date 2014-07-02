@@ -6,4 +6,4 @@ if [ "$0" != "$SCRIPT_PATH" ] && [ "$SCRIPT_PATH" != "" ]; then
     cd $SCRIPT_PATH
 fi
 
-ipython notebook --certfile=mycert.pem --ipython-dir=ipython --profile=flowml_server
+ipython notebook --certfile=mycert.pem --ipython-dir=$PWD/ipython --profile=flowml_server 

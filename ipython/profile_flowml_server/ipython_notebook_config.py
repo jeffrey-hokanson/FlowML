@@ -4,33 +4,22 @@ c = get_config()
 
 c.IPKernelApp.pylab = 'inline'
 
-# TODO(?) For security reasons, should this be an absolute path?
-c.NotebookApp.certfile = '../../../mycert.pem'
+# TODO: This should be passed in by the start_server.sh script
+root = u'/Users/jhokanson/SVN/FlowML/'
+
+# This should be an absolute path so that when
+c.NotebookApp.certfile = root + u'mycert.pem'
 c.NotebookApp.ip = '*'
 c.NotebookApp.open_browser = False
 
+c.NotebookApp.port = 9000
 
-c.NotebookApp.port = 8424
-# Load password from file, if it exists.
-# NOTE: For administrators, you may wish to put the password here,
-# rather than in a file
-try:
-    f = open('password.sha1')
-    password = f.readline()
-    f.close()
-    if password[0:4] == u'sha1':
-        c.NotebookApp.password = password[0:58]
-    else:
-        raise ValueError('password file not in valid format')
-except:
-    print "Please enter a password for this notebook."
-    print "The resulting SHA1 will be saved in password.sha1 for future use"
-    from IPython.lib import passwd
-    password = passwd() 
-    c.NotebookApp.password = password
-    f = open('password.sha1','w')
-    f.write(password)
-    f.close()
+# Save password in independent file
+f = open(root + u'password.sha1')
+password = f.readline()
+f.close()
+if password[0:4] == u'sha1':
+    c.NotebookApp.password = password[0:58]
     
 
 
