@@ -11,7 +11,6 @@ c.NotebookApp.open_browser = False
 
 
 c.NotebookApp.port = 8424
-c.NotebookApp.password = u'sha1:fabcc654b4e7:04f5e7351d5549228163208a1b01511530b6c9f2'
 # Load password from file, if it exists.
 # NOTE: For administrators, you may wish to put the password here,
 # rather than in a file
