@@ -14,14 +14,20 @@ if debug:
 # TODO: remove error text message and replace with raising exceptions
 
 def read(filename, convert_metadata = True):
-    """
-        Reads in an FCS file, given by filename and returns a tuple containing
-        a numpy array and a dictionary of data.
+    """Read in an FCS file and return numpy arrays of data and dictionaries of
+    metadata
 
-        convert_metadata - convert the metadata into python appropreate types
-            i.e., the string '15' becomes the integer 15
+    Input arguments:
+    filename -- file to read
+    convert_metadata -- converts integer values stored as strings in the metadata
 
-        Based on Laszlo Balkay's fca_readfcs.m from 3 Dec 2013.
+    Output:
+    data -- numpy array of values in the data matrix
+    metadata -- dictionary of metadata associated with the data segment
+    analysis -- numpy array of values in the analysis matrix
+    meta_analysis -- dictionary of metadata associated with the analysis segment
+    
+    Based on Laszlo Balkay's fca_readfcs.m from 3 Dec 2013.
     """
     f = open(filename, 'r')
 
