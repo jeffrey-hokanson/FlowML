@@ -1,1 +1,1 @@
-__all__ = ['fcs']
+__all__ = ['fcs', 'flowdata']
