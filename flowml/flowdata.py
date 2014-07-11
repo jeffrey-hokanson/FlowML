@@ -13,7 +13,14 @@ from IPython.html.widgets import interact
 from functools32 import lru_cache
 
 from analysis import kde1, kde2, hist1, hist2
+import gate
 
+import copy
+
+ISOTOPE_LIST = [ 'Xe131', 'Cs133', 'La139', 'Ce140', 'Pr141', 'Nd144', 'Nd148',
+                 'Eu151', 'Eu153', 'Gd156', 'Tb159', 'Dy162', 'Dy164', 'Ho165',
+                 'Er166', 'Er168', 'Tm169', 'Yb172', 'Yb176', 'Ir191', 'Ir193',
+                 'Pt195']
 
 class FlowCore(object):
     """FlowCore: Provides data analysis facilities for classes that can access
@@ -35,7 +42,7 @@ class FlowCore(object):
             return hist2(axis1, axis2, [self], **kwargs)
 
 class FlowData(FlowCore):
-    def __init__(self, filename):
+    def __init__(self, filename = None,):
         (data, metadata, analysis, meta_analysis) = fcs.read(filename)
         
         self._metadata = metadata
@@ -61,7 +68,6 @@ class FlowData(FlowCore):
             pass
 
 
-
     @property
     def nparameters(self):
         """ Number of measuremen0t/property channels"""
@@ -77,6 +83,51 @@ class FlowData(FlowCore):
     def names(self):
         return [self._metadata.get('$P{}S'.format(j), self.short_names[j-1]) for j in range(1,self.nparameters+1)]
     
+    @property 
+    def shape(self):
+        return self.panda.shape
+
+    def marker_table(self):
+    # TODO: Make this return an HTML table when called in IPython
+        class ListTable(list):
+            """Overidden to provide a pretty print table
+             """
+            # following http://calebmadrigal.com/display-list-as-table-in-ipython-notebook/
+            def _repr_html_(self):
+                html = ["<table>"]
+                html.append("<tr><td>Isotope</td><td>Marker</td></tr>")
+                for row in self:
+                    html.append("<tr>")
+                    for col in row:
+                        html.append("<td>{0}</td>".format(col))
+                    html.append("</tr>")
+                html.append("</table>")
+                return ''.join(html)
+
+        rows = ListTable()
+        for t, n in zip(self.tags, self.names):
+            rows.append([t,n])
+        return rows
+    
+
+
+    #@lru_cache(maxsize = None)
+    @property
+    def tags(self):
+        """Provides the tags (e.g., Ir191) used in the experiment
+        """
+        tags = []
+        for (sn, n) in zip(self.short_names, self.names):
+            new_tag = n
+            for iso in ISOTOPE_LIST:
+                if iso.upper() in sn.upper() or iso.upper() in n.upper():
+                    new_tag = iso
+            if 'Event_length'.upper() in sn or 'Event_length'.upper() in n.upper():
+                new_tag = 'Cell_length'
+            tags.append(new_tag)
+        return tags
+                    
+
     def rename(self, columns):
         """Rename selected columns
         provide a dictionary mapping old names to new names
@@ -91,12 +142,51 @@ class FlowData(FlowCore):
         self.panda.rename(columns = columns, inplace = True)
 
 
-#    def gate(self, 
+    def label(self, labeler, name):
+        # A boolian array determining class membership
+        data = None
+        if isinstance(labeler, np.ndarray) or isinstance(labeler, pd.Series):
+            data = labeler
+        if isinstance(labeler, gate.FigureWidget):
+            axis = labeler._flowml_axis
+            path = labeler.path
+            pts = np.column_stack( [ self[a] for a in axis] )
+            data = path.contains_points(pts) 
 
+        if data is None:
+            raise ValueError('Input labeler could not be used')
+        
+        self.panda[name] = data
 
     # Direct calls to Pandas
     def __getitem__(self, index):
-        return self.panda.__getitem__(index)
+
+        # First scan item to see if they appear using a short name
+        def fix_name(name):
+            if name in self.short_names:
+                idx = self.short_names.index(name)
+                name = self.names[idx]
+            if name in self.tags:
+                idx = self.tags.index(name)
+                name = self.names[idx]
+            return name
+
+        if isinstance(index, str):
+            index = fix_name(index)
+        if isinstance(index,list):
+            index = [ fix_name(i) for i in index]
+        new_panda = self.panda.__getitem__(index)
+        # If we get back a pandas instance, we need to make a copy of FlowData
+        # and return
+        if isinstance(new_panda, pd.DataFrame): 
+            new = copy.deepcopy(self)
+            new.panda = new_panda
+            return new
+
+        # Otherwise, we assume we got back a numpy array, and return that
+        else:
+            return new_panda
+            
     def __str__(self):
         return self.panda.__str__()
     def __repr__(self):

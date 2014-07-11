@@ -26,6 +26,7 @@ from mpld3.mpld3renderer import MPLD3Renderer
 import json
 import random
 
+# TODO: relative paths
 f = open('/Users/jhokanson/SVN/Flowml/flowml/gate.js')
 JAVASCRIPT = f.read()
 f.close()
@@ -47,17 +48,22 @@ def crop(ax):
 	from mpld3.mpld3renderer import MPLD3Renderer
     except ImportError:
          raise ImportError("You need mpld3 v0.3 to use this feature.")
+
+    fig = None
+    if isinstance(ax, mpl.figure.Figure):
+        fig = ax
+        ax = fig.axes[0]
     
+
     xmin, xmax = ax.get_xlim()
     ymin, ymax = ax.get_ylim()
-    print(xmin,xmax,ymin,ymax)
     Path = mpath.Path
     path_data = [
-	(Path.MOVETO, (xmin, ymin)),
-	(Path.LINETO, (xmin, ymax)),
-	(Path.LINETO, (xmax, ymax)),
-	(Path.LINETO, (xmax, ymin)),
-	(Path.CLOSEPOLY, (xmax, ymin)),
+	(Path.MOVETO, (xmin + 0.25*(xmax - xmin), ymin + 0.25*(ymax - ymin))),
+	(Path.LINETO, (xmin + 0.25*(xmax - xmin), ymin + 0.75*(ymax - ymin))),
+	(Path.LINETO, (xmin + 0.75*(xmax - xmin), ymin + 0.75*(ymax - ymin))),
+	(Path.LINETO, (xmin + 0.75*(xmax - xmin), ymin + 0.25*(ymax - ymin))),
+	(Path.CLOSEPOLY, (xmin + 0.75*(xmax - xmin), ymin + 0.25*(ymax - ymin))),
 	]
     codes, verts = zip(*path_data)
     path = mpath.Path(verts, codes)
@@ -84,10 +90,19 @@ def crop(ax):
     my_widget.extra_css = extra_css
     my_widget.figid = 'fig_' + get_id(fig) + str(int(random.random() * 1E10))
     my_widget.idpts = mpld3.utils.get_id(points[0], 'pts')
-    my_widget.y1 = xmax
-    my_widget.x2 = ymax
-    my_widget.x2 = xmax
-    my_widget.x3 = ymax
+    my_widget.x1 = xmin + 0.25*(xmax - xmin) 
+    my_widget.x2 = xmin + 0.25*(xmax - xmin) 
+    my_widget.x3 = xmin + 0.75*(xmax - xmin) 
+    my_widget.x4 = xmin + 0.75*(xmax - xmin) 
+    my_widget.y1 = ymin + 0.25*(ymax - ymin)
+    my_widget.y2 = ymin + 0.75*(ymax - ymin)
+    my_widget.y3 = ymin + 0.75*(ymax - ymin)
+    my_widget.y4 = ymin + 0.75*(ymax - ymin)
+
+    # Copy over preservation of axis information if looking at a FlowML
+    # generated figure.
+    if hasattr(fig, '_flowml_axis'):
+        my_widget._flowml_axis = fig._flowml_axis
 
     display(Javascript(JAVASCRIPT))
     fig.clf()
@@ -96,6 +111,7 @@ def crop(ax):
 
 
 class LinkedDragPlugin(mpld3.plugins.PluginBase):
+    # TODO: relative paths
     f = open('/Users/jhokanson/SVN/Flowml/flowml/linked_drag.js')
     JAVASCRIPT = f.read()
     f.close()
@@ -113,6 +129,8 @@ class LinkedDragPlugin(mpld3.plugins.PluginBase):
 
 
 class FigureWidget(widgets.DOMWidget):
+    # TODO: store state between sessions
+    # return arrays
     _view_name = Unicode('FigureView', sync=True)
     
     mpld3_url = Unicode(MPLD3_URL, sync=True)  # TODO: Allow local mpld3 and d3.
@@ -135,13 +153,20 @@ class FigureWidget(widgets.DOMWidget):
     y3 = Float(0, sync=True)  # will connect to a slider widget
     idpts = Unicode('', sync=True)
     
-    @property
-    def slice(self):
-        return [slice(min(self.y0, self.y1, self.y2, self.y3),
-                      max(self.y0, self.y1, self.y2, self.y3)),
-                slice(min(self.x0, self.x1, self.x2, self.x3),
-                      max(self.x0, self.x1, self.x2, self.x3))]
-
     def display(self):
         display(self)
         self.initialized = ' '
+
+    @property
+    def path(self):
+        Path = mpath.Path 
+        path_data = [
+                (Path.MOVETO, (self.x0, self.y0)),
+                (Path.LINETO, (self.x1, self.y1)),
+                (Path.LINETO, (self.x2, self.y2)),
+                (Path.LINETO, (self.x3, self.y3)),
+                (Path.CLOSEPOLY, (self.x3, self.y3))
+                ]
+        codes, verts = zip(*path_data)
+        path  = mpath.Path(verts, codes)
+        return path
