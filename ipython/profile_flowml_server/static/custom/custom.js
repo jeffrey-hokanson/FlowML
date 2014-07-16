@@ -47,3 +47,7 @@
  * @class customjs
  * @static
  */
+
+
+/* Uploading as Gists */
+IPython.load_extensions('gist');
