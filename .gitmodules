@@ -1,3 +1,6 @@
 [submodule "external/ipython_extensions"]
 	path = external/ipython_extensions
 	url = https://github.com/minrk/ipython_extensions.git
+[submodule "external/nbupload"]
+	path = external/nbupload
+	url = https://github.com/edvakf/nbupload.git
