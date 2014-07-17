@@ -8,15 +8,20 @@ import os
 import pandas as pd
 import fcs
 import numpy as np
+import re
 
 from IPython.html.widgets import interact
 from functools32 import lru_cache
 
+import analysis
 from analysis import kde1, kde2, hist1, hist2
 import gate
-
 import copy
 
+import matplotlib
+import matplotlib.pyplot as plt
+
+# List of Isotopes used by the CyTOF
 ISOTOPE_LIST = [ 'Xe131', 'Cs133', 'La139', 'Ce140', 'Pr141', 'Nd144', 'Nd148',
                  'Eu151', 'Eu153', 'Gd156', 'Tb159', 'Dy162', 'Dy164', 'Ho165',
                  'Er166', 'Er168', 'Tm169', 'Yb172', 'Yb176', 'Ir191', 'Ir193',
@@ -40,6 +45,79 @@ class FlowCore(object):
             return hist1(axis1, [self], **kwargs)
         else:
             return hist2(axis1, axis2, [self], **kwargs)
+
+    @property
+    def tags(self):
+        raise NotImplementedError
+
+    @property
+    def isotopes(self):
+        """Provide list of isotope names used
+        """
+        pattern = re.compile(r"^[A-Za-z]{1,2}[1-2]\d{2}$")
+        isotopes = []
+        for tag in self.tags:
+            if pattern.match(tag):
+                isotopes.append(tag)
+
+        return isotopes    
+
+
+    def tsne(self, *args, **kwargs):
+        """tsne wrapper
+        """
+        return analysis.tsne(self, *args, **kwargs)
+    
+    def marker_table(self):
+    # TODO: Make this return an HTML table when called in IPython
+        class ListTable(list):
+            """Overidden to provide a pretty print table
+             """
+            # following http://calebmadrigal.com/display-list-as-table-in-ipython-notebook/
+            def _repr_html_(self):
+                html = ["<table>"]
+                html.append("<tr><td>Isotope</td><td>Marker</td></tr>")
+                for row in self:
+                    html.append("<tr>")
+                    for col in row:
+                        html.append("<td>{0}</td>".format(col))
+                    html.append("</tr>")
+                html.append("</table>")
+                return ''.join(html)
+
+        rows = ListTable()
+        for t, n in zip(self.tags, self.names):
+            rows.append([t,n])
+        return rows
+
+
+    def tsne_plot(self, label, color_label = None, color = 'k', ax = None):
+        """Show the results of t-SNE/viSNE
+
+        """ 
+        
+        try:
+            x = self[label + '1']
+            y = self[label + '2']
+        except:
+            raise ValueError("The matching t-SNE/viSNE data is not in this object with name {}.  Run tsne.".format(label))
+
+        x = x[x != float('NaN')]
+        y = y[y != float('NaN')]
+
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        if color_label is None:
+            ax.plot(x,y,'.',color = color)
+        else:
+            c = self[color_label]
+            ax.scatter(x, y, c = c, s = 15, norm = matplotlib.colors.SymLogNorm(1), edgecolors = 'none') 
+        
+        return fig 
+            
+
+
 
 class FlowData(FlowCore):
     def __init__(self, filename = None,):
@@ -87,27 +165,6 @@ class FlowData(FlowCore):
     def shape(self):
         return self.panda.shape
 
-    def marker_table(self):
-    # TODO: Make this return an HTML table when called in IPython
-        class ListTable(list):
-            """Overidden to provide a pretty print table
-             """
-            # following http://calebmadrigal.com/display-list-as-table-in-ipython-notebook/
-            def _repr_html_(self):
-                html = ["<table>"]
-                html.append("<tr><td>Isotope</td><td>Marker</td></tr>")
-                for row in self:
-                    html.append("<tr>")
-                    for col in row:
-                        html.append("<td>{0}</td>".format(col))
-                    html.append("</tr>")
-                html.append("</table>")
-                return ''.join(html)
-
-        rows = ListTable()
-        for t, n in zip(self.tags, self.names):
-            rows.append([t,n])
-        return rows
     
 
 
@@ -126,7 +183,7 @@ class FlowData(FlowCore):
                 new_tag = 'Cell_length'
             tags.append(new_tag)
         return tags
-                    
+                
 
     def rename(self, columns):
         """Rename selected columns
@@ -186,7 +243,11 @@ class FlowData(FlowCore):
         # Otherwise, we assume we got back a numpy array, and return that
         else:
             return new_panda
-            
+           
+
+    def __setitem__(self, index, value):
+        self.panda[index] = value
+ 
     def __str__(self):
         return self.panda.__str__()
     def __repr__(self):

@@ -4,3 +4,6 @@
 [submodule "external/nbupload"]
 	path = external/nbupload
 	url = https://github.com/edvakf/nbupload.git
+[submodule "external/barnes-hut-sne"]
+	path = external/barnes-hut-sne
+	url = https://github.com/ninjin/barnes-hut-sne.git

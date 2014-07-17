@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from kde import kde
 
 from mpld3 import plugins
-
+import tsne as lib_tsne
 
 CYTOF_LENGTH_NAMES = ['Event_length', 'Cell_length']
 
@@ -156,7 +156,7 @@ def hist1(axis, datasets, bins = None, xmin = None, xmax = None, range = None, a
 
 def hist2(axis1, axis2, datasets, bins = None, 
         xmin = None, xmax = None, ymin = None, ymax = None, range = None,
-        axes = None):
+        axes = None, transform = None):
     
     datax = []
     datay = []
@@ -178,6 +178,24 @@ def hist2(axis1, axis2, datasets, bins = None,
     except:
         pass
     
+    if transform is None:
+        identity = lambda x: x
+        transform = (identity, identity)
+
+    if not isinstance(transform, (list, tuple)):
+        transform = [transform, transform]
+    
+    for index, t in enumerate(transform):
+        if t == 'log':
+            transform[index] = lambda x: np.log(x)
+        if t == 'arcsinh':
+            transform[index] = lambda x: np.arcsinh(x)
+
+ 
+    for index, d in enumerate(datax):
+        datax[index] = transform[0](d)
+    for index, d in enumerate(datay):
+        datay[index] = transform[1](d) 
 
     if xmin is None and range is None:
         xmin = min([np.min(d) for d in datax])
@@ -198,7 +216,8 @@ def hist2(axis1, axis2, datasets, bins = None,
     if bins is None:
         bins = default_bins
 
-   
+
+
     if axes is None: 
         fig, ax = plt.subplots()
     else:
@@ -212,7 +231,7 @@ def hist2(axis1, axis2, datasets, bins = None,
     for (dx, dy) in zip(datax, datay):
         den, xedge, yedge = np.histogram2d(dx, dy, bins = bins, range = ((xmin, xmax), (ymin, ymax))) 
         den_.append(den)
-    _2d_backend(ax, den_, xedge[0:-1], yedge[0:-1], titles, axis1, axis2)
+    _2d_backend(ax, den_, xedge[0:-1], yedge[0:-1], titles, axis1, axis2, transform)
     
 
     return fig
@@ -225,31 +244,70 @@ def make_cmap(target, background = None):
     cc = matplotlib.colors.ColorConverter()
     target = cc.to_rgb(target)
     background = cc.to_rgb(background)
-
+    # Start halfway to filled
+    start = [(bg+tg)/2 for bg, tg in zip(background, target)]
+    
     cdict = {'red': [], 'green': [], 'blue': []}
-    for (v, c) in zip(background, ['red', 'green', 'blue']):
+    for (v, c) in zip(start, ['red', 'green', 'blue']):
         cdict[c].append( (0, v, v))
     for (v, c) in zip(target, ['red', 'green', 'blue']):
         cdict[c].append( (1, v, v))
     
     cmap = matplotlib.colors.LinearSegmentedColormap('my_colormap', cdict, 256)
+    # makes under-range values transparent
+    cmap.set_under(alpha = 0)
+
+
     return cmap
     
     
-def _2d_backend(ax, den_, xgrid, ygrid, titles, axis1, axis2):
+def _2d_backend(ax, den_, xgrid, ygrid, titles, axis1, axis2, transform = None):
     alpha = 0.4
     proxy = []
     line_collections = []
+    levels = 10**np.arange(0,7)
     for den in den_: 
         line, = ax.plot(0,0)
-        ln = ax.contourf(xgrid, ygrid, den, norm = matplotlib.colors.LogNorm(), 
-                    cmap = make_cmap(line.get_color()), alpha = alpha) 
+        #ln = ax.contourf(xgrid, ygrid, den.T,
+        #            norm = matplotlib.colors.LogNorm(vmin=1.), 
+        #            cmap = make_cmap(line.get_color()), alpha = alpha,
+        #            levels = levels) 
+        ln = ax.imshow(den.T, cmap = make_cmap(line.get_color()), origin = 'lower',
+                        norm = matplotlib.colors.LogNorm(),
+                        extent = [np.min(xgrid), np.max(xgrid), np.min(ygrid), np.max(ygrid)],
+                        interpolation = 'none',
+                        aspect = 'auto')
         line_collections.append(ln)
         proxy.append( plt.Rectangle((0,0),1,1,fc = line.get_color(),alpha = alpha))
         line.remove()
+
     ax.legend(proxy, titles)
     ax.set_xlabel(axis1)
     ax.set_ylabel(axis2) 
+
+    if transform is not None:
+        # set ticks
+        xticks = transform[0](np.concatenate([0*np.ones(1), 10**np.arange(0,6)]))
+        yticks = transform[1](np.concatenate([0*np.ones(1), 10**np.arange(0,6)]))
+        xticklabels = ["0"]
+        for j in range(0,6):
+            xticklabels.append("1e{}".format(j))
+        yticklabels = ["0"]
+        for j in range(0,6):
+            yticklabels.append("1e{}".format(j))
+        
+        print xticks
+        print xticklabels
+        print len(xticks)
+        print len(xticklabels)
+        ax.set_xticks(xticks)
+        ax.set_xticklabels(xticklabels)
+        ax.set_yticks(yticks)
+        ax.set_yticklabels(yticklabels)    
+
+
+
+
     # This feature does not yet work with this kind of density plot
     #plugins.connect(ax.figure, plugins.InteractiveLegendPlugin(line_collections, titles)) 
 
@@ -329,6 +387,35 @@ def fn_matrix(datasets, fn, axes = None, label = None):
     cols = [fd.title for fd in datasets]
     mfn = pd.DataFrame(matrix, index = index, columns = cols)
     return mfn
+
+
+def tsne(fd, new_label,  channels = None, transform = 'arcsinh', sample = 6000, verbose = False):
+    """Perform t-SNE/viSNE on the FlowData object
+    
+    """
+
+    if channels is None:
+        channels = fd.isotopes
+
+    points = np.vstack([ fd[ch] for ch in channels ]).T
+    npoints = points.shape[0]
+    # randomly sample
+    idx = np.random.choice(points.shape[0], sample, replace = False)
+    points = points[idx,:]
+
+    # transform
+    if transform == 'arcsinh':
+        np.arcsinh(5*points, points)
+    # perform t-SNE
+    Y = lib_tsne.tsne(points, verbose = verbose)
+
+    # now expand data to reassign these points back into the dataset
+    Z = np.zeros( (npoints,2))*float('NaN')
+    Z[idx,:] = Y
+    # add to data view
+    fd[new_label+'1'] = Z[:,0]
+    fd[new_label+'2'] = Z[:,1]
+
 
 
 def heatmap(df, cmap ='RdBu' ):
