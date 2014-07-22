@@ -31,6 +31,16 @@ class FlowCore(object):
     """FlowCore: Provides data analysis facilities for classes that can access
     labeld columns via __getitem__ 
     """
+
+    def matrix(self, *args):
+        """Provides a numpy matrix where rows correspond to cells.
+
+        If no arguments are provided, this returns all physical tags.
+        """
+        if len(args) == 0:
+            args = self.physical_tags
+        return np.vstack([ self[ch] for ch in args ]).T
+
     def kde(self, axis1, axis2 = None, **kwargs):
         """Plot a kernel density estimate of the given axis (a single item or tuple)
         """
@@ -61,6 +71,15 @@ class FlowCore(object):
                 isotopes.append(tag)
 
         return isotopes    
+
+    @property
+    def physical_tags(self):
+        """List of actual tags (e.g., isotope names and fluorescent compounds)
+
+        This does not include derived properties or additional data like time.
+        """
+        # TODO: Also check for fluorescent tags
+        return self.isotopes
 
 
     def tsne(self, *args, **kwargs):
