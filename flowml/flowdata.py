@@ -31,6 +31,9 @@ class FlowCore(object):
     """FlowCore: Provides data analysis facilities for classes that can access
     labeld columns via __getitem__ 
     """
+    def __new__(self):
+        self.spade_mst = {}
+        self.spade_means = {}
 
     def matrix(self, *args):
         """Provides a numpy matrix where rows correspond to cells.

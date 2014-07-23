@@ -186,6 +186,8 @@ def hist2(axis1, axis2, datasets, bins = None,
         transform = [transform, transform]
     
     for index, t in enumerate(transform):
+        if t == 'linear' or t is None:
+            transform[index] = lambda x: x
         if t == 'log':
             transform[index] = lambda x: np.log(x)
         if t == 'arcsinh':
@@ -443,4 +445,10 @@ def heatmap(df, cmap ='RdBu' ):
     ax.invert_yaxis()
     ax.xaxis.tick_top()
 
-    return fig 
+    return fig
+
+
+def spade_plot(datasets, label = 'SPADE_CLUSTER', channel = None):
+    pass
+ 
+ 

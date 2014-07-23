@@ -8,10 +8,42 @@ from scipy.spatial import cKDTree as KDTree
 from scipy.spatial.distance import cityblock, pdist, squareform
 from scipy.cluster.hierarchy import fcluster
 from scipy.sparse.csgraph import minimum_spanning_tree as mst
+from scipy.sparse import coo_matrix
+
+import pyximport; pyximport.install()
+from sum_pairs import _sum_pairs
+
 try:
-    from fastcluster import linkage
+    from fastcluster import linkage, linkage_vector
 except:
     from scipy.cluster.hierarchy import linkage
+
+
+def _matrix_sum_pairs(pairs, m):
+    # For each pair, we increase the local density for each. The operation is:
+    # local_density = np.zeros(data.shape[0])
+    # for p in pairs:
+    #    local_density[p[0]] += 1
+    #    local_density[p[1]] += 1 
+    # This is a python based loop and too slow.  We use a coo_matrix to do
+    # this sum rapidly.
+    pairs = np.array(list(pairs))
+    n = pairs.shape[0]
+    X1 = coo_matrix( (np.ones(n), (pairs[:,0], np.zeros(n))), shape = (m,1) )
+    X2 = coo_matrix( (np.ones(n), (pairs[:,1], np.zeros(n))), shape = (m,1) )
+    X1 = np.array(X1.tocsr().todense()).reshape(-1)
+    X2 = np.array(X2.tocsr().todense()).reshape(-1)
+    local_density = X1 + X2
+    return local_density 
+
+def _slow_sum_pairs(pairs, m):
+    local_density = np.zeros(m)
+    for p in pairs:
+        local_density[p[0]] += 1
+        local_density[p[1]] += 1 
+
+    return local_density
+
 
 def downsample(data, npoints = 2000, distance_metric = 1, 
         distance_threshold = None, alpha = 5, outlier_percentile = 1.,
@@ -67,14 +99,20 @@ def downsample(data, npoints = 2000, distance_metric = 1,
         distance_threshold = alpha*median_dist
 
     # Step 2: compute local density for each point
-    local_density = np.zeros(data.shape[0])
     # First we compute a list of pairs that are within radius distance_threshold
-    pairs = kdtree.query_pairs(distance_threshold, distance_metric)
-    # For each pair, we increase the local density for each.
-    for p in pairs:
-        local_density[p[0]] += 1
-        local_density[p[1]] += 1 
-
+    
+    # An old implementation used the query_pairs function, but this proved too
+    # slow
+    # pairs = kdtree.query_pairs(distance_threshold, distance_metric)
+    # local_density = _sum_pairs(pairs, data.shape[0])    
+    
+    # Using query_ball_point gave made the resulting code 75% faster.
+    dens = kdtree.query_ball_point(data, distance_threshold, distance_metric)
+    local_density = np.array( [ len(den) - 1 for den in dens ])
+    
+    #local_density = _slow_sum_pairs(pairs, data.shape[0])
+    #print np.allclose(ld2, local_density)
+    #print local_density
 
     # Step 3: Downsample points on local density
 
@@ -113,18 +151,29 @@ def agglom_cluster(down, nclusters):
     as per paper, this is single linkage, L1 distance metric 
     """ 
 
-    # TODO: see http://www.jstatsoft.org/v53/i09/paper for details on fastcluster
+    # see http://www.jstatsoft.org/v53/i09/paper for details on fastcluster
     # by Daniel Müllnerout of Carlsson's group
     
-    Z = linkage(down, method = 'single', metric = cityblock)
+    # NOTE: Ideally, we would call the linkage function as
+    # `Z = linkage(down, method = 'single', metric = cityblock)`
+    # which would prevent the explicit formation of a distance matrix
+    # however, since this involves calling back to Python, the overhead
+    # is too much.  So we form the distance matrix and pass it to the 
+    # linkage function.
+    try:
+        Z = linkage_vector(down, method = 'single', metric = 'cityblock')
+    except:
+        dist = pdist(down, metric = 'minkowski', p = 1)
+        Z = linkage(dist, method = 'single', preserve_input = False)
     return fcluster(Z, nclusters, criterion = 'maxclust') 
    
 
 def minimum_spanning_tree(cluster_means):
     """
     L1 single linkage, minimum spanning tree
-    """ 
+    """
     dist = pdist(cluster_means, metric = 'minkowski', p = 1)
+    #dist = mst(squareform(dist), overwrite = False)
     dist = mst(squareform(dist), overwrite = False)
     return dist 
 
@@ -141,13 +190,14 @@ def drive(fdarray, channels = None, nclusters = 200,
 
     # STEP 1: Density Dependent Downsampling
     data = []
+    data_transformed = []
     for j, fd in enumerate(fdarray):
         # Grab matrix data and transform
         if channels is None:
             X = transform(fd.matrix())
         else:
             X = transform(fd.matrix(*channels))
-
+        data_transformed.append(X)
         # Downsample
         down = downsample(X, npoints = npoints)
         # Attach label
@@ -166,21 +216,18 @@ def drive(fdarray, channels = None, nclusters = 200,
         idx = (clust == j + 1)
         cluster_means[j,:] = np.mean( data[idx,0:-1], axis =0)
     
-    dist = minimum_spanning_tree(cluster_means)   
+    mst = minimum_spanning_tree(cluster_means)   
     
     # STEP 5: Upsample
     kdtree = KDTree(data[:,0:-1])
     
-    for j, fd in enumerate(fdarray):
-        if channels is None:
-            X = transform(fd.matrix())
-        else:
-            X = transform(fd.matrix(*channels))
+    for j, X in enumerate(data_transformed):
         # Get nearest neigbors 
         d, nearest = kdtree.query(X, p = 1)
         cluster_upsample = clust[nearest]
 
         fd[label] = cluster_upsample
-    
-    print dist 
+        fd.spade_mst[label] = mst
+        fd.spade_means[label] = cluster_means
+    return dist 
 
