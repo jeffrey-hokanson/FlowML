@@ -9,21 +9,21 @@ from kde import kde
 from mpld3 import plugins
 import tsne as lib_tsne
 
-import auto_config
-from auto_config import CYTOF_LENGTH_NAMES
+import util
+from util import CYTOF_LENGTH_NAMES
 
 def kde1(datasets, axis, bandwidth = None, npoints = 1001, xmin = None, xmax = None, xrange_ = None, axes = None):
     """
     """
     # Extract data
-    data = auto_config.extract_data(datasets, axis) 
-    titles = auto_config.extract_title(datasets)
-    xmin, xmax = auto_config.set_limits(data, xmin, xmax, xrange_, axis)    
+    data = util.extract_data(datasets, axis) 
+    titles = util.extract_title(datasets)
+    xmin, xmax = util.set_limits(data, xmin, xmax, xrange_, axis)    
    
     if bandwidth is None:
-        bandwidth = auto_config.default_bandwidth(axis, npoints, xmin, xmax)
+        bandwidth = util.default_bandwidth(axis, npoints, xmin, xmax)
 
-    fig, ax = auto_config.fig_ax(axes)     
+    fig, ax = util.fig_ax(axes)     
     fig._flowml_axis = (axis, )
  
     xgrid = np.linspace(xmin, xmax, npoints)
@@ -31,7 +31,7 @@ def kde1(datasets, axis, bandwidth = None, npoints = 1001, xmin = None, xmax = N
         den = kde.hat_linear(d, bandwidth, xmin, xmax, npoints)
         ax.plot(xgrid, den, label = t)
     
-    ax.set_yscale(auto_config.default_yscale(axis))
+    ax.set_yscale(util.default_yscale(axis))
     ax.set_xlabel(axis)
     ax.set_ylabel('Density Estimate')
     if len(data) > 1:
@@ -90,18 +90,18 @@ def hist1(datasets, axis, bins = None, xmin = None, xmax = None, xrange_ = None,
     """
 
     # Extract data
-    data = auto_config.extract_data(datasets, axis) 
-    titles = auto_config.extract_title(datasets)
-    xmin, xmax = auto_config.set_limits(data, xmin, xmax, xrange_, axis)    
+    data = util.extract_data(datasets, axis) 
+    titles = util.extract_title(datasets)
+    xmin, xmax = util.set_limits(data, xmin, xmax, xrange_, axis)    
     
     if bins is None:
-        bins = auto_config.bin_default(axis, xmin, xmax)
+        bins = util.bin_default(axis, xmin, xmax)
 
-    fig, ax = auto_config.fig_ax(axes)     
+    fig, ax = util.fig_ax(axes)     
     fig._flowml_axis = (axis, )
 
     # Plotting preferences
-    alpha = auto_config.alpha(len(data)) 
+    alpha = util.alpha(len(data)) 
     
     # We do not use the Matplotlib API for histograms because we want to have transparent plots
     # Following example: http://matplotlib.org/examples/api/histogram_path_demo.html
@@ -129,7 +129,7 @@ def hist1(datasets, axis, bins = None, xmin = None, xmax = None, xrange_ = None,
     ax.set_ylim(1, max_value )
    
     ax.set_xlabel(axis)
-    ax.set_yscale(auto_config.default_yscale(axis))
+    ax.set_yscale(util.default_yscale(axis))
     if len(data) > 1:
         ax.legend()
     else:
@@ -138,20 +138,13 @@ def hist1(datasets, axis, bins = None, xmin = None, xmax = None, xrange_ = None,
 
 def hist2(datasets, axis1, axis2, bins = None, 
         xmin = None, xmax = None, ymin = None, ymax = None, range_ = None,
-        axes = None, transform = 'arcsinh'):
+        axes = None, transform = None):
     
-    datax = []
-    datay = []
-    titles = []
-    # Attempt to load data
-    for ds in datasets:
-        try:
-            datax.append(ds[axis1].values)
-            datay.append(ds[axis2].values)
-            titles.append(ds.title)
-        except KeyError:
-            print('Warning, no such column name found')
-    
+   
+    datax = util.extract_data(datasets, axis1) 
+    datay = util.extract_data(datasets, axis2) 
+    titles = util.extract_title(datasets)
+
     try: 
         xrange_ = range_[0]
         yrange_ = range_[1]
@@ -159,47 +152,32 @@ def hist2(datasets, axis1, axis2, bins = None,
         xrange_ = None
         yrange_ = None
 
-    xmin, xmax = auto_config.set_limits(datax, xmin, xmax, xrange_, axis1)
-    ymin, ymax = auto_config.set_limits(datay, ymin, ymax, yrange_, axis2)
-    
-    if transform is None:
-        identity = lambda x: x
-        transform = (identity, identity)
-
+    xmin, xmax = util.set_limits(datax, xmin, xmax, xrange_, axis1)
+    ymin, ymax = util.set_limits(datay, ymin, ymax, yrange_, axis2)
+  
     if not isinstance(transform, (list, tuple)):
         transform = [transform, transform]
-    
-    for index, t in enumerate(transform):
-        if t == 'linear' or t is None:
-            transform[index] = lambda x: x
-        if t == 'log':
-            transform[index] = lambda x: np.log(x)
-        if t == 'arcsinh':
-            transform[index] = lambda x: np.arcsinh(x)
+    scaling = [None, None]
 
- 
+    (scaling[0], transform[0]) = util.default_scaling(axis1, scaling = None, transform = transform[0])
+    (scaling[1], transform[1]) = util.default_scaling(axis2, scaling = None, transform = transform[1])
+     
+    
     for index, d in enumerate(datax):
         datax[index] = transform[0](d)
     for index, d in enumerate(datay):
         datay[index] = transform[1](d) 
 
-
-    default_bins = [100,100]
-    if axis1 in CYTOF_LENGTH_NAMES:
-        default_bins[0] = xmax - xmin + 1
-    if axis2 in CYTOF_LENGTH_NAMES:
-        default_bins[1] = ymax - ymin + 1
-    
     if bins is None:
-        bins = default_bins
+        bins = [None, None]
+    if isinstance(bins, int):
+        bins = [bins, bins]
+    
+    bins[0] = util.bin_default(axis1, xmin, xmax, bins = bins[0])
+    bins[1] = util.bin_default(axis1, xmin, xmax, bins = bins[1])
+    
 
-
-
-    if axes is None: 
-        fig, ax = plt.subplots()
-    else:
-        ax = axes
-        fig = ax.figure
+    fig, ax = util.fig_ax(axes)     
     fig._flowml_axis = (axis1, axis2)
     # We do not use the Matplotlib API for histograms because we want to have transparent plots
     # Following example: http://matplotlib.org/examples/api/histogram_path_demo.html
@@ -208,8 +186,34 @@ def hist2(datasets, axis1, axis2, bins = None,
     for (dx, dy) in zip(datax, datay):
         den, xedge, yedge = np.histogram2d(dx, dy, bins = bins, range = ((xmin, xmax), (ymin, ymax))) 
         den_.append(den)
-    _2d_backend(ax, den_, xedge[0:-1], yedge[0:-1], titles, axis1, axis2, transform)
+   
     
+    alpha = util.alpha(len(den_))       
+
+    _2d_backend(ax, den_, xedge[0:-1], yedge[0:-1], titles, axis1, axis2, transform)
+    proxy = []
+    line_collections = []
+    levels = 10**np.arange(0,7)
+    for den in den_: 
+        line, = ax.plot(0,0)
+        ln = ax.imshow(den.T, cmap = make_cmap(line.get_color()), origin = 'lower',
+                        norm = matplotlib.colors.LogNorm(),
+                        extent = [np.min(xedge), np.max(xedge), np.min(yedge), np.max(yedge)],
+                        interpolation = 'none',
+                        aspect = 'auto')
+        line_collections.append(ln)
+        proxy.append( plt.Rectangle((0,0),1,1,fc = line.get_color(),alpha = alpha))
+        line.remove()
+    
+    ax.legend(proxy, titles)
+    ax.set_xlabel(axis1)
+    ax.set_ylabel(axis2) 
+   
+    ax.set_xscale(scaling[0])
+    ax.set_yscale(scaling[1]) 
+    
+    
+
 
     return fig
 
@@ -239,7 +243,8 @@ def make_cmap(target, background = None):
     
     
 def _2d_backend(ax, den_, xgrid, ygrid, titles, axis1, axis2, transform = None):
-    alpha = 0.4
+
+    alpha = util.alpha(len(den_))       
     proxy = []
     line_collections = []
     levels = 10**np.arange(0,7)
