@@ -2,6 +2,10 @@
 
 from flowdata import FlowData
 from analysis import * 
+import arcsinh_transform
+
+# Coordinate transforms
+import arcsinh_transform
 
 # Disabled temporarly
 #import mpld3
