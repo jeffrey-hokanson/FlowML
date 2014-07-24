@@ -31,10 +31,10 @@ class FlowCore(object):
     """FlowCore: Provides data analysis facilities for classes that can access
     labeld columns via __getitem__ 
     """
-    def __new__(self):
-        self.spade_mst = {}
-        self.spade_means = {}
-
+#    def __new__():
+#        self.spade_mst = {}
+#        self.spade_means = {}
+#        return self
     def matrix(self, *args):
         """Provides a numpy matrix where rows correspond to cells.
 
@@ -49,15 +49,15 @@ class FlowCore(object):
         """
 
         if axis2 is None:
-            return kde1(axis1, [self], **kwargs)
+            return kde1([self], axis1, **kwargs)
         else:
-            return kde2(axis1, axis2, [self], **kwargs)
+            return kde2([self], axis1, axis2, **kwargs)
 
     def hist(self, axis1, axis2 = None, **kwargs):
         if axis2 is None:
-            return hist1(axis1, [self], **kwargs)
+            return hist1([self], axis1, **kwargs)
         else:
-            return hist2(axis1, axis2, [self], **kwargs)
+            return hist2([self], axis1, axis2,  **kwargs)
 
     @property
     def tags(self):
@@ -143,6 +143,8 @@ class FlowCore(object):
 
 class FlowData(FlowCore):
     def __init__(self, filename = None,):
+        """Load an FCS file specified by the filename.
+        """
         (data, metadata, analysis, meta_analysis) = fcs.read(filename)
         
         self._metadata = metadata
@@ -167,6 +169,9 @@ class FlowData(FlowCore):
         except:
             pass
 
+    
+        self.spade_mst = {}
+        self.spade_means = {} 
 
     @property
     def nparameters(self):

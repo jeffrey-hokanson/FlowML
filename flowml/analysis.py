@@ -9,45 +9,39 @@ from kde import kde
 from mpld3 import plugins
 import tsne as lib_tsne
 
-CYTOF_LENGTH_NAMES = ['Event_length', 'Cell_length']
+import auto_config
+from auto_config import CYTOF_LENGTH_NAMES
 
-
-def kde1(axis, datasets, bandwidth = 0.5, npoints = 1001, xmin = None, xmax = None, range = None ):
+def kde1(datasets, axis, bandwidth = None, npoints = 1001, xmin = None, xmax = None, xrange_ = None, axes = None):
     """
     """
-    data = []
-    titles = []
-    # Attempt to load data
-    for ds in datasets:
-        try:
-            data.append(ds[axis].values)
-            titles.append(ds.title)
-        except KeyError:
-            print('Warning, no such column name found')
-    try: 
-        xmin = range[0]
-        xmax = range[1]
-    except:
-        pass
+    # Extract data
+    data = auto_config.extract_data(datasets, axis) 
+    titles = auto_config.extract_title(datasets)
+    xmin, xmax = auto_config.set_limits(data, xmin, xmax, xrange_, axis)    
+   
+    if bandwidth is None:
+        bandwidth = auto_config.default_bandwidth(axis, npoints, xmin, xmax)
 
-    # Determine the range, if we were not provided one
-    if xmin is None and range is None:
-        xmin = min([np.min(d) for d in data])
-    if xmax is None and range is None:
-        xmax = max([np.max(d) for d in data])
-        
-    fig, ax = plt.subplots()
+    fig, ax = auto_config.fig_ax(axes)     
     fig._flowml_axis = (axis, )
+ 
     xgrid = np.linspace(xmin, xmax, npoints)
     for (d, t) in zip(data, titles):
         den = kde.hat_linear(d, bandwidth, xmin, xmax, npoints)
         ax.plot(xgrid, den, label = t)
-    ax.set_yscale('log')
+    
+    ax.set_yscale(auto_config.default_yscale(axis))
     ax.set_xlabel(axis)
+    ax.set_ylabel('Density Estimate')
+    if len(data) > 1:
+        ax.legend()
+    else:
+        ax.set_title(titles[0])
     return fig
 
 
-def kde2(axis1, axis2, datasets, bandwidth = 1.0, npoints = (100,100),
+def kde2(datasets, axis1, axis2, bandwidth = 1.0, npoints = (100,100),
         xmin = None, xmax = None, ymin = None, ymax = None, 
         range = None):
     
@@ -91,55 +85,41 @@ def kde2(axis1, axis2, datasets, bandwidth = 1.0, npoints = (100,100),
     _2d_backend(ax, den_, xgrid, ygrid, titles, axis1, axis2)
     return fig
 
-def hist1(axis, datasets, bins = None, xmin = None, xmax = None, range = None, axes = None):
-    
-    data = []
-    titles = []
-    # Attempt to load data
-    for ds in datasets:
-        try:
-            data.append(ds[axis].values)
-            titles.append(ds.title)
-        except KeyError:
-            print('Warning, no such column name found')
-    
-    try: 
-        xmin = range[0]
-        xmax = range[1]
-    except:
-        pass
-    
-    if xmin is None and range is None:
-        xmin = min([np.min(d) for d in data])
-    if xmax is None and range is None:
-        xmax = max([np.max(d) for d in data])
-    
-    if axis in CYTOF_LENGTH_NAMES and bins is None:
-        bins = xmax - xmin
-   
-    if bins is None:
-        bins = 100
-     
-    if axes is None: 
-        fig, ax = plt.subplots()
-    else:
-        ax = axes
-        fig = ax.figure
+def hist1(datasets, axis, bins = None, xmin = None, xmax = None, xrange_ = None, axes = None):
+    """One dimensional histograms.
+    """
 
+    # Extract data
+    data = auto_config.extract_data(datasets, axis) 
+    titles = auto_config.extract_title(datasets)
+    xmin, xmax = auto_config.set_limits(data, xmin, xmax, xrange_, axis)    
+    
+    if bins is None:
+        bins = auto_config.bin_default(axis, xmin, xmax)
+
+    fig, ax = auto_config.fig_ax(axes)     
     fig._flowml_axis = (axis, )
+
+    # Plotting preferences
+    alpha = auto_config.alpha(len(data)) 
+    
     # We do not use the Matplotlib API for histograms because we want to have transparent plots
     # Following example: http://matplotlib.org/examples/api/histogram_path_demo.html
     max_value = float('-inf')
+
     for (d, t) in zip(data, titles ):
         (hist, bin_edges) = np.histogram(d, bins = bins, range = (xmin, xmax))
         left = np.array(bin_edges[:-1])
         right = np.array(bin_edges[1:])
+        # FIXES a bug in MPLD3 0.3 regarding NaNs in coordinates
         bottom = 1e-6*np.ones(len(left))
         top = bottom + hist
         XY = np.array([[left,left,right,right], [bottom, top, top, bottom]]).T
         barpath = matplotlib.path.Path.make_compound_path_from_polys(XY)
+        # serves to get the current color
         base_line, = ax.plot(hist, alpha = 0)
-        patch = matplotlib.patches.PathPatch(barpath, facecolor = base_line.get_color(), edgecolor = base_line.get_color(),  alpha = 0.1)
+        patch = matplotlib.patches.PathPatch(barpath, facecolor = base_line.get_color(), 
+                    edgecolor = base_line.get_color(),  alpha = alpha)
         # Clear the unneeded line 
         base_line.remove()
         patch.set_label(t)
@@ -147,16 +127,18 @@ def hist1(axis, datasets, bins = None, xmin = None, xmax = None, range = None, a
         max_value = max(max_value, top.max())
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(1, max_value )
-    ax.set_yscale('log')
-    ax.legend()
-    
-    ax.set_xlabel(axis)    
-
+   
+    ax.set_xlabel(axis)
+    ax.set_yscale(auto_config.default_yscale(axis))
+    if len(data) > 1:
+        ax.legend()
+    else:
+        ax.set_title(titles[0])
     return fig
 
-def hist2(axis1, axis2, datasets, bins = None, 
-        xmin = None, xmax = None, ymin = None, ymax = None, range = None,
-        axes = None, transform = None):
+def hist2(datasets, axis1, axis2, bins = None, 
+        xmin = None, xmax = None, ymin = None, ymax = None, range_ = None,
+        axes = None, transform = 'arcsinh'):
     
     datax = []
     datay = []
@@ -171,12 +153,14 @@ def hist2(axis1, axis2, datasets, bins = None,
             print('Warning, no such column name found')
     
     try: 
-        xmin = range[0][0]
-        xmax = range[0][1]
-        ymin = range[1][0]
-        ymax = range[1][1]
+        xrange_ = range_[0]
+        yrange_ = range_[1]
     except:
-        pass
+        xrange_ = None
+        yrange_ = None
+
+    xmin, xmax = auto_config.set_limits(datax, xmin, xmax, xrange_, axis1)
+    ymin, ymax = auto_config.set_limits(datay, ymin, ymax, yrange_, axis2)
     
     if transform is None:
         identity = lambda x: x
@@ -198,15 +182,6 @@ def hist2(axis1, axis2, datasets, bins = None,
         datax[index] = transform[0](d)
     for index, d in enumerate(datay):
         datay[index] = transform[1](d) 
-
-    if xmin is None and range is None:
-        xmin = min([np.min(d) for d in datax])
-    if xmax is None and range is None:
-        xmax = max([np.max(d) for d in datax])
-    if ymin is None and range is None:
-        ymin = min([np.min(d) for d in datay])
-    if ymax is None and range is None:
-        ymax = max([np.max(d) for d in datay])
 
 
     default_bins = [100,100]
@@ -298,10 +273,10 @@ def _2d_backend(ax, den_, xgrid, ygrid, titles, axis1, axis2, transform = None):
         for j in range(0,6):
             yticklabels.append("1e{}".format(j))
         
-        print xticks
-        print xticklabels
-        print len(xticks)
-        print len(xticklabels)
+        #print xticks
+        #print xticklabels
+        #print len(xticks)
+        #print len(xticklabels)
         ax.set_xticks(xticks)
         ax.set_xticklabels(xticklabels)
         ax.set_yticks(yticks)
