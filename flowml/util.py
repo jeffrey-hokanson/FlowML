@@ -32,8 +32,11 @@ def default_scaling(channel, scaling = None, transform = None):
     estimator or histogram for binning.
     """
     
-    if scaling is None:
-        scaling = 'log'
+    if scaling is None and transform is None:
+        scaling = 'arcsinh'
+    if scaling is None and transform == 'linear':
+        scaling = 'linear'
+
 
     if transform is None:
         transform = lambda x: np.arcsinh(5*x)
@@ -64,7 +67,7 @@ def bin_default(channel, xmin, xmax, bins = None):
     """Default spacing of bins given data.
     """
     if bins is None:
-        bins = 100
+        bins = 200
 
     if channel in CYTOF_LENGTH_NAMES:
         bins = xmax - xmin
@@ -153,3 +156,6 @@ def fig_ax(axes):
         ax = axes
         fig = ax.figure
     return fig, ax
+
+
+

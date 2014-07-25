@@ -159,20 +159,22 @@ def hist2(datasets, axis1, axis2, bins = None,
         transform = [transform, transform]
     scaling = [None, None]
 
-    (scaling[0], transform[0]) = util.default_scaling(axis1, scaling = None, transform = transform[0])
-    (scaling[1], transform[1]) = util.default_scaling(axis2, scaling = None, transform = transform[1])
-     
+    scaling[0], transform[0] = util.default_scaling(axis1, scaling = scaling[0], transform = transform[0])
+    scaling[1], transform[1] = util.default_scaling(axis2, scaling = scaling[1], transform = transform[1])
     
     for index, d in enumerate(datax):
         datax[index] = transform[0](d)
     for index, d in enumerate(datay):
         datay[index] = transform[1](d) 
-
+    
+    xmin_transformed, xmax_transformed = util.set_limits(datax)
+    ymin_transformed, ymax_transformed = util.set_limits(datay)
+    
+    # Determine how many bins to use 
     if bins is None:
         bins = [None, None]
     if isinstance(bins, int):
         bins = [bins, bins]
-    
     bins[0] = util.bin_default(axis1, xmin, xmax, bins = bins[0])
     bins[1] = util.bin_default(axis1, xmin, xmax, bins = bins[1])
     
@@ -183,14 +185,13 @@ def hist2(datasets, axis1, axis2, bins = None,
     # Following example: http://matplotlib.org/examples/api/histogram_path_demo.html
 
     den_ = []
+    range_ = ((xmin_transformed, xmax_transformed),(ymin_transformed, ymax_transformed)) 
     for (dx, dy) in zip(datax, datay):
-        den, xedge, yedge = np.histogram2d(dx, dy, bins = bins, range = ((xmin, xmax), (ymin, ymax))) 
+        den, xedge, yedge = np.histogram2d(dx, dy, bins = bins, range = range_) 
         den_.append(den)
-   
     
     alpha = util.alpha(len(den_))       
 
-    _2d_backend(ax, den_, xedge[0:-1], yedge[0:-1], titles, axis1, axis2, transform)
     proxy = []
     line_collections = []
     levels = 10**np.arange(0,7)
@@ -198,26 +199,24 @@ def hist2(datasets, axis1, axis2, bins = None,
         line, = ax.plot(0,0)
         ln = ax.imshow(den.T, cmap = make_cmap(line.get_color()), origin = 'lower',
                         norm = matplotlib.colors.LogNorm(),
-                        extent = [np.min(xedge), np.max(xedge), np.min(yedge), np.max(yedge)],
+                        extent = [xmin, xmax, ymin, ymax],
                         interpolation = 'none',
                         aspect = 'auto')
         line_collections.append(ln)
         proxy.append( plt.Rectangle((0,0),1,1,fc = line.get_color(),alpha = alpha))
         line.remove()
-    
-    ax.legend(proxy, titles)
+   
+    if len(datax) == 1:
+        ax.set_title(titles[0])
+    elif len(datax) > 1:
+        ax.legend(proxy, titles)
     ax.set_xlabel(axis1)
     ax.set_ylabel(axis2) 
-   
+    
     ax.set_xscale(scaling[0])
     ax.set_yscale(scaling[1]) 
-    
-    
-
 
     return fig
-
-
 
 def make_cmap(target, background = None):
     if background is None:
