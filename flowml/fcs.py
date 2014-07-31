@@ -4,7 +4,7 @@
 # Library for reading and writing FCS files
 import re
 import numpy as np
-
+import sys
 debug = False
 #debug = True
 
@@ -165,15 +165,112 @@ def read(filename, convert_metadata = True):
 
 
 
-def save(filename, data, metadata, analysis = None, meta_analysis = None):
+def write(filename, data, metadata, analysis = None, meta_analysis = None, version = '3.1'):
+    """Write an FCS with name `filename`
+    data - numpy array
+    metadata - dictionary of key-value pairs containing metadata
+    """
+    # This follows Jacob Frelinger's implementation
+    # https://github.com/jfrelinger/fcm/blob/master/src/io/export_to_fcs.py
+    if version != '3.1':
+        raise NotImplementedError
+ 
+    f = open(filename, 'wb')
 
-    raise NotImplementedError
+
+    # FCS defined positions 
+    # Borrowed from FCM under BSD Simplified 2 Clause
+    header_text_start = (10, 17)
+    header_text_end = (18, 25)
+    header_data_start = (26, 33)
+    header_data_end = (34, 41)
+    header_analysis_start = (42, 49)
+    header_analysis_end = (50, 57)
+
+    # Write the start of the header.  We will fill in the values later.
+    f.write('FCS3.1')
+    f.write(' ' * 53)
+    
+    # Write the TEXT segment
+    text_start = 256    # Arbitrary start point; only somewhere after the end of the header
+    delim = '/' # delimiter between key-value pairs in TEXT segment
+    
+    # write spaces between end of header and start of text
+    f.seek(58)
+    f.write(' ' * (text_start - f.tell()))
+    
+
+    # Set all key names in the metadata dictionary to upper case to aid in 
+    # checking for key existance
+    _metadata = {}
+    for key, value in metadata.items():
+        upper_key = key.upper()
+        # Convert integers over to strings
+        if isinstance(value, int):
+            value = str(value)
+        # Check that we do get a string 
+        assert isinstance(value,str), \
+            'Dictionary values must be strings, key {} is not'.format(upper_key)
+        _metadata[upper_key] = value
+    metadata = _metadata
+
+    # Set required keys to proper values
+    if analysis is None:
+        metadata['$BEGINANALYSIS'] = str(0)
+        metadata['$ENDANALYSIS'] = str(0)
+    
+    # Currently, we don't support multiple datafiles within the same file.
+    metadata['$NEXTDATA'] = str(0)
+    
+    # Number of columns in our dataset
+    metadata['$PAR'] = str(data.shape[0])
+    metadata['$TOT'] = str(data.shape[1])
+
+    # Set the data properties (byte length (i.e., single/double), endian, etc.)
+    if data.dtype.kind == 'f':
+        # Endian-ness setting
+        byteorder_dict = {'<': '1,2,3,4', '>': '4,3,2,1', '|': 'ERR'}
+        if sys.byteorder == 'little':
+            byteorder_dict['='] = '1,2,3,4'
+        else:
+            byteorder_dict['='] = '4,3,2,1'
+
+        metadata['$BYTEORD'] = byteorder_dict[data.dtype.byteorder]
+        assert metadata['$BYTEORD'] is not 'ERR', \
+            'Unknown datatype {}'.format(data.dtype)
+        
+        # set the number of bits in the data
+        if data.dtype.itemsize*8 == 32:
+            metadata['$DATATYPE'] = 'F'
+            nbits = 32
+        elif data.dtype.itemize*8 == 64:
+            metadata['$DATATYPE'] = 'D'
+            nbits = 64
+        else:
+            assert False, "Float datatype {} of length {} not supported".format(
+                data.dtype, data.dtype.itemsize)
+
+        # Now assign the proper number of bits per each channel
+        for j in range(data.shape[0]):
+            metadata['$P{}B'.format(j+1)] = nbits
+        
+    elif data.dtype.kind == 'i':
+        raise NotImplementedError 
+
+
+    # Currently, we assume we can fit the TEXT segment in the first 99,999,999 bytes
+    # so we do not use the supplemental TEXT segment option
+    metadata['$BEGINSTEXT'] = 0
+    metadata['$ENDSTEXT'] = 0
+
+    # Set the mode: we only support list mode:
+    metadata['$MODE'] = 'L'
 
 
 
 # TODO: Remove this primative testing code in favor of a more professional version
 if __name__ == '__main__':
-    (data, metadata) = read('test.fcs')
+    (data, metadata, analysis, meta_analysis) = read('test.fcs')
     import pprint
     pp = pprint.PrettyPrinter(indent = 4)
     pp.pprint(data)
