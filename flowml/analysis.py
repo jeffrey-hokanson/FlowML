@@ -12,6 +12,9 @@ import tsne as lib_tsne
 import util
 from util import CYTOF_LENGTH_NAMES
 
+# backgating in tsne
+from scipy.spatial import cKDTree as KDTree
+
 def kde1(datasets, axis, bandwidth = None, npoints = 1001, xmin = None, xmax = None, xrange_ = None, axes = None):
     """
     """
@@ -370,13 +373,60 @@ def fn_matrix(datasets, fn, axes = None, label = None):
     return mfn
 
 
-def tsne(fd, new_label,  channels = None, transform = 'arcsinh', sample = 6000, verbose = False):
+def tsne(fd, new_label,  channels = None, transform = 'arcsinh', sample = 6000,
+         verbose = False, backgate = True):
     """Perform t-SNE/viSNE on the FlowData object
     
     """
 
     if channels is None:
         channels = fd.isotopes
+
+    points = np.vstack([ fd[ch] for ch in channels ]).T
+    npoints = points.shape[0]
+
+    # transform
+    if transform == 'arcsinh':
+        np.arcsinh(5*points, points)
+    
+    # randomly sample
+    idx = np.random.choice(points.shape[0], sample, replace = False)
+    subpoints = points[idx,:]
+    # perform t-SNE
+    Y = lib_tsne.tsne(subpoints, verbose = verbose)
+    assert Y is not None, ('t-SNE failed to return') 
+    # now expand data to reassign these points back into the dataset
+    Z = np.zeros( (npoints,2))*float('NaN')
+    Z[idx,:] = Y
+
+    backgate = True
+    if backgate:
+        kd = KDTree(points[idx,:])
+        # select points not assigned values with t-SNE
+        mask = np.ones(npoints, dtype = bool)
+        mask[idx] = False
+        notidx = np.arange(npoints)[mask]
+        # find indexes of nearest points
+        d,i = kd.query(points[notidx,:],1) 
+        Z[notidx,:] = Y[i,:]
+        #for left, right in zip(notidx,i):
+        #    Z[left,:] = Y[right,:]
+
+    # add to data view
+    fd[new_label+'1'] = Z[:,0]
+    fd[new_label+'2'] = Z[:,1]
+
+
+def tsne2(fdarray, new_label,  channels = None, transform = 'arcsinh', sample = 6000, verbose = False):
+    """Perform t-SNE/viSNE on the FlowData object
+    
+    """
+
+    fdarray = util.make_list(fdarray)
+    
+    if channels is None:
+        channels = fd.isotopes
+
 
     points = np.vstack([ fd[ch] for ch in channels ]).T
     npoints = points.shape[0]
@@ -396,7 +446,6 @@ def tsne(fd, new_label,  channels = None, transform = 'arcsinh', sample = 6000, 
     # add to data view
     fd[new_label+'1'] = Z[:,0]
     fd[new_label+'2'] = Z[:,1]
-
 
 
 def heatmap(df, cmap ='RdBu' ):
@@ -430,4 +479,9 @@ def heatmap(df, cmap ='RdBu' ):
 def spade_plot(datasets, label = 'SPADE_CLUSTER', channel = None):
     pass
  
+
+
+    
+
+
  

@@ -152,12 +152,12 @@ class FlowData(FlowCore):
         self._meta_analysis = meta_analysis
         self._data = data
         
-        # List of column names
-        columns = self.names
-        
+        # A dictionary that converts column names to index numbers
+        # currently we default to using the long name value $PnS
+        self._columns = self.names
         # There is an endian-ness bug that requires changing the type of data to satisfy
         # pandas
-        self.panda = pd.DataFrame(np.transpose(data).astype('f8'),  columns = columns)
+        self.panda = pd.DataFrame(np.transpose(data).astype('f8'),  columns = self._columns)
        
         # This variable encodes the original length of the data set as imported for use
         # normalizing kernel density estimates 
@@ -176,24 +176,53 @@ class FlowData(FlowCore):
     @property
     def nparameters(self):
         """ Number of measuremen0t/property channels"""
-        return self._metadata['$PAR']
+        return int(self._metadata['$PAR'])
 
     @property
     def short_names(self):
         """List of column names in the $PnN section of the FCS file
         Sometimes this corresponds to each marker; e.g., CD45.
         """
-        return [self._metadata.get('$P{}N'.format(j),'{}'.format(j)) for j in range(1,self.nparameters+1)]
+        # TODO: PnN is actually the short name parameter
+        
+        return [self._metadata.get('$P{:d}N'.format(j),'{:d}'.format(j)) for j in range(1,self.nparameters+1)]
     @property
     def names(self):
-        return [self._metadata.get('$P{}S'.format(j), self.short_names[j-1]) for j in range(1,self.nparameters+1)]
+        return [self._metadata.get('$P{:d}S'.format(j), self.short_names[j-1]) for j in range(1,self.nparameters+1)]
     
     @property 
     def shape(self):
         return self.panda.shape
 
     
+    def fcs_export(self, filename, dtype = None):
+        """Export to an FCS file
+        """
+        # TODO: remove this quick hack 
+        #fcs.write(filename, self._data, self._metadata)  
+        #return
+        
+        data = self.panda.values.T
+        #data = np.nan_to_num(data).T
+        
+        data = data.astype('<f')        
 
+
+        metadata = self._metadata 
+        
+        assert len(self._columns) == data.shape[0], "Not enough columns"
+        metadata['$PAR'] = str(len(self._columns))
+        
+        for j, name in enumerate(self._columns):
+            metadata['$P{}S'.format(j+1)] = name
+            # If we don't have a previously recorded short name, use the long name
+            if '$P{}N'.format(j+1) not in metadata:
+                pass
+                #metadata['$P{}N'.format(j+1)] = "anal{}".format(j+1)
+        
+        metadata['$TOT'] = str(data.shape[0])
+        fcs.write(filename, data, metadata)  
+            
 
     #@lru_cache(maxsize = None)
     @property
@@ -217,12 +246,10 @@ class FlowData(FlowCore):
         provide a dictionary mapping old names to new names
         """ 
         # Rename the columns in the metadata field
-        for key in columns:
-            if key in self.short_names:
-                i = self.short_names.index(key)
-                # NOTE: This changes the 'short name' field $PnN 
-                self._metadata['$P{}N'.format(i+1)] = columns[key]
- 
+        for old_name, new_name in columns.iteritems():
+            assert old_name in self._columns, "Error in _columns"
+            idx = self._columns.index(old_name)
+            self._columns[idx] = new_name
         self.panda.rename(columns = columns, inplace = True)
 
 
@@ -271,10 +298,13 @@ class FlowData(FlowCore):
         else:
             return new_panda
            
-
     def __setitem__(self, index, value):
+        if index not in self._columns:
+            self._columns.append(index)
+
         self.panda[index] = value
  
+
     def __str__(self):
         return self.panda.__str__()
     def __repr__(self):

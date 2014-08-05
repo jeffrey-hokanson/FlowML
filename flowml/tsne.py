@@ -25,5 +25,7 @@ def tsne(points, perplexity = DEFAULT_PERPLEXITY, theta = DEFAULT_THETA, verbose
     for j, val in enumerate(gen):
         output[j][0] = val[0]
         output[j][1] = val[1]
+    return output
 
-    return output 
+
+
