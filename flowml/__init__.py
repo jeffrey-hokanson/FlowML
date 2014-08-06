@@ -6,6 +6,7 @@ import arcsinh_transform
 
 # Coordinate transforms
 import arcsinh_transform
+import spade
 
 # Disabled temporarly
 #import mpld3

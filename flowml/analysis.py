@@ -373,79 +373,69 @@ def fn_matrix(datasets, fn, axes = None, label = None):
     return mfn
 
 
-def tsne(fd, new_label,  channels = None, transform = 'arcsinh', sample = 6000,
+def tsne(fdarray, new_label,  channels = None, transform = 'arcsinh', sample = 6000,
          verbose = False, backgate = True):
     """Perform t-SNE/viSNE on the FlowData object
     
     """
 
+    fdarray = util.make_list(fdarray)
     if channels is None:
-        channels = fd.isotopes
-
-    points = np.vstack([ fd[ch] for ch in channels ]).T
-    npoints = points.shape[0]
+        # build intersection of lists
+        channel_set = []
+        for fd in fdarray:
+            channel_set.append(set(fd.isotopes))
+        channels = list(set.intersection(*channel_set))
+    
+    points = []
+    npoints = []
+    for fd in fdarray:
+        points.append(np.vstack([ fd[ch] for ch in channels ]).T)
+        npoints.append(points[-1].shape[0])
 
     # transform
     if transform == 'arcsinh':
-        np.arcsinh(5*points, points)
+        for pts in points:
+            # Apply the transform inplace to the data
+            np.arcsinh(5*pts, pts)
     
     # randomly sample
-    idx = np.random.choice(points.shape[0], sample, replace = False)
-    subpoints = points[idx,:]
+    idx = []
+    subpoints = []
+    for pts in points:
+        idx.append(np.random.choice(pts.shape[0], sample, replace = False))
+        subpoints.append(pts[idx[-1],:])
+
     # perform t-SNE
-    Y = lib_tsne.tsne(subpoints, verbose = verbose)
+    X = np.vstack(subpoints)
+    Y = lib_tsne.tsne(X, verbose = verbose)
     assert Y is not None, ('t-SNE failed to return') 
+
     # now expand data to reassign these points back into the dataset
-    Z = np.zeros( (npoints,2))*float('NaN')
-    Z[idx,:] = Y
+    Z = []
+    for npts, i, num in zip(npoints, idx, range(len(npoints))):
+        Z.append(np.zeros( (npts,2))*float('NaN'))
+        mask = np.arange(sample*num,sample*(num+1),dtype = int)
+        Z[-1][i,:] = Y[mask,:]
 
     backgate = True
     if backgate:
-        kd = KDTree(points[idx,:])
+        kd = KDTree(X)
         # select points not assigned values with t-SNE
-        mask = np.ones(npoints, dtype = bool)
-        mask[idx] = False
-        notidx = np.arange(npoints)[mask]
-        # find indexes of nearest points
-        d,i = kd.query(points[notidx,:],1) 
-        Z[notidx,:] = Y[i,:]
-        #for left, right in zip(notidx,i):
-        #    Z[left,:] = Y[right,:]
+        for pts, npts, i, ZZ in zip(points, npoints, idx, Z):
+            mask = np.ones(npts, dtype = bool)
+            mask[i] = False
+            noti = np.arange(npts)[mask]
+        
+            # find indexes of nearest points
+            d,near = kd.query(pts[noti,:],1) 
+            ZZ[noti,:] = Y[near,:]
+ 
+    # add to data to FlowData structure
+    for fd, ZZ in zip(fdarray, Z):
+        fd[new_label+'1'] = ZZ[:,0]
+        fd[new_label+'2'] = ZZ[:,1]
 
-    # add to data view
-    fd[new_label+'1'] = Z[:,0]
-    fd[new_label+'2'] = Z[:,1]
-
-
-def tsne2(fdarray, new_label,  channels = None, transform = 'arcsinh', sample = 6000, verbose = False):
-    """Perform t-SNE/viSNE on the FlowData object
-    
-    """
-
-    fdarray = util.make_list(fdarray)
-    
-    if channels is None:
-        channels = fd.isotopes
-
-
-    points = np.vstack([ fd[ch] for ch in channels ]).T
-    npoints = points.shape[0]
-    # randomly sample
-    idx = np.random.choice(points.shape[0], sample, replace = False)
-    points = points[idx,:]
-
-    # transform
-    if transform == 'arcsinh':
-        np.arcsinh(5*points, points)
-    # perform t-SNE
-    Y = lib_tsne.tsne(points, verbose = verbose)
-
-    # now expand data to reassign these points back into the dataset
-    Z = np.zeros( (npoints,2))*float('NaN')
-    Z[idx,:] = Y
-    # add to data view
-    fd[new_label+'1'] = Z[:,0]
-    fd[new_label+'2'] = Z[:,1]
 
 
 def heatmap(df, cmap ='RdBu' ):

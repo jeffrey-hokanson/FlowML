@@ -5,12 +5,16 @@
 - [x] Bind to Barnes Hut t-SNE
 - [x] Python based SPADE Implementation with KD-Trees
 - [ ] Pretty tables
+- [ ] Progress bars for long operations
+- [x] t-SNE on multiple files
+- [x] 2D axis defaults
+
 
 ## Release 0.2
 - [ ] File upload (partially avalible by 
       ```%load_ext nbupload ;
       FileUploaderWidget()```)
-- [ ] Write FCS files
+- [x] Write FCS files
 - [ ] CyTOF calibration
 
 ## Release 0.3

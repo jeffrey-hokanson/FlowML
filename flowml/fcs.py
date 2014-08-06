@@ -224,9 +224,8 @@ def write(filename, data, metadata, analysis = None, version = '3.1'):
         else:
             byteorder_dict['='] = '4,3,2,1'
             #byteorder_dict['='] = '1,2,3,4'
-        print(data.dtype.byteorder)
+        
         metadata['$BYTEORD'] = byteorder_dict[data.dtype.byteorder]
-        print(metadata['$BYTEORD'])
         assert metadata['$BYTEORD'] is not 'ERR', \
             'Unknown datatype {}'.format(data.dtype)
         

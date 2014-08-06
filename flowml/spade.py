@@ -2,8 +2,9 @@
 # -*- coding: latin_1 -*-
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
 
+from __future__ import division
 import numpy as np
-from math import floor, ceil
+from math import floor, ceil, cos, sin, pi
 from scipy.spatial import cKDTree as KDTree
 from scipy.spatial.distance import cityblock, pdist, squareform
 from scipy.cluster.hierarchy import fcluster
@@ -12,7 +13,6 @@ from scipy.sparse import coo_matrix
 
 import pyximport; pyximport.install()
 from sum_pairs import _sum_pairs
-
 try:
     from fastcluster import linkage, linkage_vector
 except:
@@ -229,5 +229,57 @@ def drive(fdarray, channels = None, nclusters = 200,
         fd[label] = cluster_upsample
         fd.spade_mst[label] = mst
         fd.spade_means[label] = cluster_means
-    return dist 
+    return mst 
 
+
+def longest_path(G):
+    """Returns the longest path in the graph.
+    """
+    edges = G.edges()
+    paths = [ [k] for k in G.nodes()]
+    while True:
+        new_paths = []
+        appended = 0 
+        for path in paths:
+            neighbors = G.neighbors(path[-1])
+            for n in neighbors:
+                if n not in path:
+                    npath = list(path)
+                    npath.append(n)
+                    new_paths.append(npath)
+                    appended += 1
+        if appended > 0:
+            paths = new_paths
+        else:
+            break
+    return paths
+
+
+def plot(fdarray, label = 'SPADE_CLUSTER'):
+    import networkx as nx
+    import scipy
+    fd  = fdarray[0]
+    G = nx.Graph()
+    cx = scipy.sparse.coo_matrix(fd.spade_mst[label])
+    for i,j,v in zip(cx.row, cx.col, cx.data):
+        G.add_edge(i,j, weight = v)
+        G.add_edge(j,i, weight = v)
+    G = G.to_undirected()
+
+    # The SPADE algorithm fixes the longest path on an arc:
+    lp = longest_path(G)[0]
+    posinit = {}
+    nlp = len(lp)
+    
+    #for x in G.nodes():
+    #    posinit[x] = np.random.rand(2)
+
+    for j,x in enumerate(lp):
+        #posinit[x] = (cos( (j - nlp)/nlp), sin( (j-nlp)/nlp))
+        posinit[x] = [j/nlp/4+0.5,0.5]
+    print posinit 
+    pos = nx.spring_layout(G, pos = posinit, fixed = lp)
+    print posinit[lp[5]]
+    print pos[lp[5]]
+    nx.draw_networkx_nodes(G, pos)
+    nx.draw_networkx_edges(G, pos, edgelist = G.edges())

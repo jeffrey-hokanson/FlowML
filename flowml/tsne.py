@@ -2,6 +2,11 @@
 from bhtsne.bhtsne import bh_tsne, DEFAULT_PERPLEXITY, DEFAULT_THETA
 import numpy as np
 
+"""This holds the code actually implementing the t-SNE embedding.
+"""
+
+# TODO: Write python based bh-tsne
+
 
 def tsne(points, perplexity = DEFAULT_PERPLEXITY, theta = DEFAULT_THETA, verbose = False):
     """Calls the best avalible implementation of t-SNE
