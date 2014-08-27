@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}FlowML{% endblock %}
+
+{% block page_content %}
+<div class="container">
+	<h1>FlowML: Tools for Flow Cytometry</h1>
+	<div class="feature-list">
+		<div class="list-group">
+			<a href="visne" class="list-group-item">
+				<h4 class="list-group-item-heading">t-SNE/viSNE</h4>
+				<p class="list-group-item-text">
+				We provide an online service that applies this embedding to data sets you upload
+				and appends the coordinates in the low dimensional space to FCS files you then download.
+				This way, you can use t-SNE/viSNE inside conventional gating tools such as FlowJo.
+				</p>
+			</a>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
