@@ -12,6 +12,38 @@ CYTOF_LENGTH_NAMES = ['Event_length', 'Cell_length']
 CYTOF_LENGTH_NAMES += [x.lower() for x in CYTOF_LENGTH_NAMES]
 CYTOF_TIME_NAMES = ['time']
 
+# List of Isotopes used by the CyTOF
+ISOTOPE_LIST = [ 'Xe131', 'Cs133', 'La139', 'Ce140', 'Pr141', 'Nd144', 'Nd148',
+                 'Eu151', 'Eu153', 'Gd156', 'Tb159', 'Dy162', 'Dy164', 'Ho165',
+                 'Er166', 'Er168', 'Tm169', 'Yb172', 'Yb176', 'Ir191', 'Ir193',
+                 'Pt195', 'Xe131']
+
+
+def alt_names(names, short_names):
+    """Generate a dictionary of alternate names for name. 
+    Used to allow easier access to columns when used interactively.
+    """
+
+    alt_names = {}
+    
+    for name, short_name in zip(names, short_names):    
+        alt_names[short_name] = name
+        for isotope in ISOTOPE_LIST:
+            if isotope.lower() in short_name.lower() or isotope.lower() in name.lower():
+                alt_names[isotope] = name
+   
+    return alt_names
+
+# TODO
+def is_cytof():
+    """Function to determine if the machine is a CyTOF
+    """
+    raise NotImplementedError
+
+################################################################################
+# Plotting Utility Functions
+################################################################################
+
 def default_bandwidth(channel, npoints, xmin, xmax):
     bandwidth = 0.5
     if channel.lower() in CYTOF_TIME_NAMES:
@@ -21,7 +53,6 @@ def default_bandwidth(channel, npoints, xmin, xmax):
         bandwidth = 1.
 
     return bandwidth
-
 
 def default_scaling(channel, scaling = None, transform = None):
     """ Return a tuple of the preferred axis scaling and transform.
@@ -73,7 +104,6 @@ def bin_default(channel, xmin, xmax, bins = None):
         bins = xmax - xmin
 
     return bins
-    
 
 def alpha(items):
     """Returns an alpha value corresponding to the number of items given.
@@ -92,7 +122,6 @@ def make_list(datasets):
         return [datasets]
     else:
         return datasets
-
 
 def set_limits(data, xmin = None, xmax = None, xrange_ = None, axis = None):
     """Determine bounding range of multiple datasets

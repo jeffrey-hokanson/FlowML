@@ -23,11 +23,8 @@ import copy
 import matplotlib
 import matplotlib.pyplot as plt
 
-# List of Isotopes used by the CyTOF
-ISOTOPE_LIST = [ 'Xe131', 'Cs133', 'La139', 'Ce140', 'Pr141', 'Nd144', 'Nd148',
-                 'Eu151', 'Eu153', 'Gd156', 'Tb159', 'Dy162', 'Dy164', 'Ho165',
-                 'Er166', 'Er168', 'Tm169', 'Yb172', 'Yb176', 'Ir191', 'Ir193',
-                 'Pt195']
+import util
+from util import ISOTOPE_LIST
 
 class FlowCore(object):
     """FlowCore: Provides data analysis facilities for classes that can access
@@ -177,12 +174,7 @@ class FlowData(FlowCore):
         # currently we default to using the long name value $PnS
         self._columns = self.names
         # Mapping of alternate names to column names
-        self._alt_names = {}
-        for col, sname in zip(self._columns, self.short_names):
-            self._alt_names[sname] = col
-
-        for col, iso in zip(self._columns, self.isotopes):
-            self._alt_names[iso] = col
+        self._alt_names = util.alt_names(self._columns, self.short_names)
 
         # There is an endian-ness bug that requires changing the type of data to satisfy
         # pandas
