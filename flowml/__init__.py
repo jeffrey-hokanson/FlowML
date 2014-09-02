@@ -8,6 +8,7 @@ import arcsinh_transform
 import arcsinh_transform
 import spade
 
+import kde
 # Disabled temporarly
 #import mpld3
 #mpld3.enable_notebook()
