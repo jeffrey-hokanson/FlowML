@@ -135,6 +135,7 @@ def extract_data(datasets, channels):
             tmp_data = []
             for ds in datasets:
                 try:
+                    print channel
                     tmp_data.append(ds[channel].values)
                 except KeyError:
                     print('Warning, no such column name found')
