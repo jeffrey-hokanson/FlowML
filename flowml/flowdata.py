@@ -31,10 +31,10 @@ class FlowCore(object):
     """FlowCore: Provides data analysis facilities for classes that can access
     labeld columns via __getitem__ 
     """
-#    def __new__():
-#        self.spade_mst = {}
-#        self.spade_means = {}
-#        return self
+
+
+
+
     def matrix(self, *args):
         """Provides a numpy matrix where rows correspond to cells.
 
@@ -139,6 +139,25 @@ class FlowCore(object):
         return fig 
             
 
+    def project(self, line, name= None):
+        """Project measurements onto the line defined by line
+        If name is specified, add the a new column with the specified name
+        """
+        
+        X = []
+        a = []
+        for key in line:
+            if key in self:
+                a.append(line[key])
+                X.append(self[key])
+        X = np.vstack(X)
+        a = np.array(a)
+        Px = np.dot(a,X)/np.sqrt(np.dot(a,a))
+
+        if name is None:
+            return Px
+        else:
+            self[name] = Px
 
 
 class FlowData(FlowCore):

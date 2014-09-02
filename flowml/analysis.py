@@ -178,9 +178,9 @@ def hist2(datasets, axis1, axis2, bins = None,
         bins = [None, None]
     if isinstance(bins, int):
         bins = [bins, bins]
+    bins = list(bins)
     bins[0] = util.bin_default(axis1, xmin, xmax, bins = bins[0])
-    bins[1] = util.bin_default(axis1, xmin, xmax, bins = bins[1])
-    
+    bins[1] = util.bin_default(axis2, xmin, xmax, bins = bins[1])
 
     fig, ax = util.fig_ax(axes)     
     fig._flowml_axis = (axis1, axis2)
@@ -228,7 +228,7 @@ def make_cmap(target, background = None):
     target = cc.to_rgb(target)
     background = cc.to_rgb(background)
     # Start halfway to filled
-    start = [(bg+tg)/2 for bg, tg in zip(background, target)]
+    start = [(bg*0.9+0.1*tg) for bg, tg in zip(background, target)]
     
     cdict = {'red': [], 'green': [], 'blue': []}
     for (v, c) in zip(start, ['red', 'green', 'blue']):
@@ -319,17 +319,35 @@ def count_matrix(datasets, labels):
     """
     
     fn = lambda fd, axis: fd.shape[0]
-    return fn_matrix(datasets, fd, axes = None, label = labels)
+    return fn_matrix(datasets, fn, axes = None, label = labels)
 
-def percent_matrix(datasets, label):
+def percent_matrix(datasets, label, relative_to = None):
     """Precentage of events with a given label.
 
     Args:
         dataset (list): List of FlowData objects
         label (list or string): name(s) of boolean columns in datasets
     """
-    fn = lambda fd, axis: fd.shape[0]*100./fd._original_length
-    return fn_matrix(datasets, fn, axes = None, label = label)
+    
+    if relative_to is None: 
+        fn = lambda fd, la: fd[fd[la]]*100./fd._original_length
+    else:
+        fn = lambda fd, la: fd[fd[la]].shape[0]*100./fd[fd[relative_to]].shape[0]
+    matrix = [ [ fn(fd,la) for fd in datasets] for la in label]
+    cols = [fd.title for fd in datasets]
+    mat = pd.DataFrame(matrix, index = label, columns = cols)
+
+    # https://stackoverflow.com/questions/18876022/how-to-format-ipython-html-display-of-pandas-dataframe
+    style = '<style>.dataframe td { text-align: right; }</style>'
+
+    from IPython.display import HTML
+    int_frmt = lambda x: '{:,}'.format( x )
+    float_frmt = lambda x: '{:,.0f}'.format( x ) if x > 1e3 else '{:,.2f}'.format( x )
+    frmt_map = { np.dtype( 'int64' ):int_frmt, np.dtype( 'float64' ):float_frmt }
+    frmt = { col:frmt_map[ mat.dtypes[ col ] ] for col in mat.columns if mat.dtypes[ col ] in frmt_map.keys( ) }
+    HTML(style + mat.to_html( formatters=frmt ) )
+
+    return mat
 
 
 def fn_matrix(datasets, fn, axes = None, label = None):
