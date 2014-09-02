@@ -3,6 +3,8 @@
 # A package containing a data structure for a single flow cytometry experiment
 
 from __future__ import print_function
+from __future__ import division
+
 
 import os
 import pandas as pd
@@ -174,9 +176,19 @@ class FlowData(FlowCore):
         # A dictionary that converts column names to index numbers
         # currently we default to using the long name value $PnS
         self._columns = self.names
+        # Mapping of alternate names to column names
+        self._alt_names = {}
+        for col, sname in zip(self._columns, self.short_names):
+            self._alt_names[sname] = col
+
+        for col, iso in zip(self._columns, self.isotopes):
+            self._alt_names[iso] = col
+
         # There is an endian-ness bug that requires changing the type of data to satisfy
         # pandas
         self.panda = pd.DataFrame(np.transpose(data).astype('f8'),  columns = self._columns)
+        
+
        
         # This variable encodes the original length of the data set as imported for use
         # normalizing kernel density estimates 
@@ -292,14 +304,10 @@ class FlowData(FlowCore):
     def __getitem__(self, index):
 
         # First scan item to see if they appear using a short name
+        
+        
         def fix_name(name):
-            if name in self.short_names:
-                idx = self.short_names.index(name)
-                name = self.names[idx]
-            if name in self.tags:
-                idx = self.tags.index(name)
-                name = self.names[idx]
-            return name
+            return self._alt_names.get(name, name)
 
         if isinstance(index, str):
             index = fix_name(index)
@@ -318,10 +326,18 @@ class FlowData(FlowCore):
             return new_panda
            
     def __setitem__(self, index, value):
+        index = self._alt_names.get(index, index)
         if index not in self._columns:
             self._columns.append(index)
+        else:
+            self.panda[index] = value
+    
+    def __contains__(self, index):
+        if index in self._columns or index in self._alt_names:
+            return True
+        else:
+            return False
 
-        self.panda[index] = value
  
 
     def __str__(self):
