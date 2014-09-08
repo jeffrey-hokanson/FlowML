@@ -436,7 +436,6 @@ def tsne(fdarray, new_label,  channels = None, transform = 'arcsinh', sample = 6
         mask = np.arange(sample*num,sample*(num+1),dtype = int)
         Z[-1][i,:] = Y[mask,:]
 
-    backgate = True
     if backgate:
         kd = KDTree(X)
         # select points not assigned values with t-SNE

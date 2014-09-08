@@ -23,9 +23,7 @@ def alt_names(names, short_names):
     """Generate a dictionary of alternate names for name. 
     Used to allow easier access to columns when used interactively.
     """
-
     alt_names = {}
-    
     for name, short_name in zip(names, short_names):    
         alt_names[short_name] = name
         for isotope in ISOTOPE_LIST:
