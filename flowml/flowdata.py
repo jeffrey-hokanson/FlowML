@@ -5,7 +5,6 @@
 from __future__ import print_function
 from __future__ import division
 
-
 import os
 import pandas as pd
 import fcs
@@ -27,12 +26,36 @@ import util
 from util import ISOTOPE_LIST
 
 class FlowCore(object):
-    """FlowCore: Provides data analysis facilities for classes that can access
-    labeld columns via __getitem__ 
+    """Base class for objects containing flow cytometry data.
+    Must contain a Pandas-like labeled columns data structure accessed by
+    __getitem__ and __setitem__.
     """
 
+    ############################################################################
+    # MANDITORY API
+    # Functions each subclass must implement
+    ############################################################################
+    
+    def __getitem__(self, index):
+        """Get items by a string key"""
+        raise NotImplementedError
+    def __setitem__(self, index, value):
+        """Set columns of a matrix using a string key"""
+        raise NotImplementedError
+
+    @property
+    def shape(self):
+        raise NotImplementedError
+
+    @property
+    def columns(self):
+        raise NotImplementedError
 
 
+    ############################################################################
+    # HELPER FUNCTIONS
+    # Functions that use common API to provide features
+    ############################################################################
 
     def matrix(self, *args):
         """Provides a numpy matrix where rows correspond to cells.
@@ -87,7 +110,7 @@ class FlowCore(object):
     def tsne(self, *args, **kwargs):
         """tsne wrapper
         """
-        return analysis.tsne(self, *args, **kwargs)
+        return analysis.tsne([self], *args, **kwargs)
     
     def marker_table(self):
     # TODO: Make this return an HTML table when called in IPython
@@ -172,30 +195,67 @@ class FlowData(FlowCore):
         
         # A dictionary that converts column names to index numbers
         # currently we default to using the long name value $PnS
-        self._columns = self.names
-        # Mapping of alternate names to column names
-        self._alt_names = util.alt_names(self._columns, self.short_names)
+        self._alt_names = util.alt_names(self.names, self.short_names)
 
         # There is an endian-ness bug that requires changing the type of data to satisfy
         # pandas
-        self.panda = pd.DataFrame(np.transpose(data).astype('f8'),  columns = self._columns)
+        self.panda = pd.DataFrame(np.transpose(data).astype('f8'),  columns = self.names)
         
-
-       
-        # This variable encodes the original length of the data set as imported for use
-        # normalizing kernel density estimates 
-        self._original_length = int(metadata['$TOT'])
         # Name that will appear in the legend of plots
         self.title = ''
         try:
             self.title = metadata['$FIL']
         except:
             pass
-
-    
         self.spade_mst = {}
         self.spade_means = {} 
+    
 
+    
+    def __getitem__(self, index):
+        # First scan item to see if they appear using a short name
+        def fix_name(name):
+            return self._alt_names.get(name, name)
+
+        if isinstance(index, str):
+            index = fix_name(index)
+        if isinstance(index,list):
+            index = [ fix_name(i) for i in index]
+        print(index)
+        new_panda = self.panda.__getitem__(index)
+        # If we get back a pandas instance, we need to make a copy of FlowData
+        # and return
+        if isinstance(new_panda, pd.DataFrame): 
+            new = copy.deepcopy(self)
+            new.panda = new_panda
+            return new
+        # Otherwise, we assume we got back a numpy array, and return that
+        else:
+            return new_panda
+    
+    def __setitem__(self, index, value):
+        index = self._alt_names.get(index, index)
+        self.panda[index] = pd.Series(value)
+    
+    def __contains__(self, index):
+        if index in self.columns or index in self._alt_names:
+            return True
+        else:
+            return False
+    
+    @property
+    def columns(self):
+        return self.panda.columns
+    
+    @property 
+    def shape(self):
+        return self.panda.shape
+
+    ############################################################################
+    
+    @property
+    def _original_length(self):
+        return int(self._metadata['$TOT'])
     @property
     def nparameters(self):
         """ Number of measuremen0t/property channels"""
@@ -213,9 +273,6 @@ class FlowData(FlowCore):
     def names(self):
         return [self._metadata.get('$P{:d}S'.format(j), self.short_names[j-1]) for j in range(1,self.nparameters+1)]
     
-    @property 
-    def shape(self):
-        return self.panda.shape
 
     
     def fcs_export(self, filename, dtype = None):
@@ -227,21 +284,14 @@ class FlowData(FlowCore):
         
         data = self.panda.values.T
         #data = np.nan_to_num(data).T
-        
         data = data.astype('<f')        
-
-
         metadata = self._metadata 
-        
-        assert len(self._columns) == data.shape[0], "Not enough columns"
-        metadata['$PAR'] = str(len(self._columns))
-        
-        for j, name in enumerate(self._columns):
-            metadata['$P{}S'.format(j+1)] = name
-            # If we don't have a previously recorded short name, use the long name
+        metadata['$PAR'] = str(len(self.columns))
+        for j, name in enumerate(self.columns):
+            if '$P{}S'.format(j+1) not in metadata:
+                metadata['$P{}S'.format(j+1)] = name
             if '$P{}N'.format(j+1) not in metadata:
-                pass
-                #metadata['$P{}N'.format(j+1)] = "anal{}".format(j+1)
+                metadata['$P{}N'.format(j+1)] = ""
         
         metadata['$TOT'] = str(data.shape[0])
         fcs.write(filename, data, metadata)  
@@ -293,42 +343,8 @@ class FlowData(FlowCore):
         self.panda[name] = data
 
     # Direct calls to Pandas
-    def __getitem__(self, index):
-
-        # First scan item to see if they appear using a short name
-        
-        
-        def fix_name(name):
-            return self._alt_names.get(name, name)
-
-        if isinstance(index, str):
-            index = fix_name(index)
-        if isinstance(index,list):
-            index = [ fix_name(i) for i in index]
-        new_panda = self.panda.__getitem__(index)
-        # If we get back a pandas instance, we need to make a copy of FlowData
-        # and return
-        if isinstance(new_panda, pd.DataFrame): 
-            new = copy.deepcopy(self)
-            new.panda = new_panda
-            return new
-
-        # Otherwise, we assume we got back a numpy array, and return that
-        else:
-            return new_panda
            
-    def __setitem__(self, index, value):
-        index = self._alt_names.get(index, index)
-        if index not in self._columns:
-            self._columns.append(index)
-        else:
-            self.panda[index] = value
     
-    def __contains__(self, index):
-        if index in self._columns or index in self._alt_names:
-            return True
-        else:
-            return False
 
  
 
@@ -342,6 +358,3 @@ class FlowData(FlowCore):
         return self.panda._repr_fits_vertical_()
     def _repr_fits_horizontal_(self):
         return self.panda._repr_fits_horizontal() 
-    @property
-    def columns(self):
-        return self.panda.columns
