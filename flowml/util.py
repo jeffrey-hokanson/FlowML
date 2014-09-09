@@ -13,10 +13,13 @@ CYTOF_LENGTH_NAMES += [x.lower() for x in CYTOF_LENGTH_NAMES]
 CYTOF_TIME_NAMES = ['time']
 
 # List of Isotopes used by the CyTOF
-ISOTOPE_LIST = [ 'Xe131', 'Cs133', 'La139', 'Ce140', 'Pr141', 'Nd144', 'Nd148',
-                 'Eu151', 'Eu153', 'Gd156', 'Tb159', 'Dy162', 'Dy164', 'Ho165',
-                 'Er166', 'Er168', 'Tm169', 'Yb172', 'Yb176', 'Ir191', 'Ir193',
-                 'Pt195', 'Xe131']
+ISOTOPE_LIST = [ 'I127', 'Rh103',
+                 'Xe131', 'Cs133', 'La139', 'Ce140', 'Pr141', 'Nd142', 'Nd143',
+                 'Nd144', 'Nd145', 'Nd146', 'Sm147', 'Nd148', 'Sm149', 'Nd150',
+                 'Eu151', 'Sm152', 'Eu153', 'Sm154', 'Gd155', 'Gd156', 'Gd158',
+                 'Tb159', 'Gd160', 'Dy161', 'Dy162', 'Dy163', 'Dy164', 'Ho165',
+                 'Er166', 'Er167', 'Er168', 'Tm169', 'Er170', 'Yb171', 'Yb172',
+                 'Yb173', 'Yb174', 'Lu175', 'Yb176', 'Ir191', 'Ir193', 'Pt195']
 
 
 def alt_names(names, short_names):

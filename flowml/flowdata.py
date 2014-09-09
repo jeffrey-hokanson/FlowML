@@ -221,7 +221,6 @@ class FlowData(FlowCore):
             index = fix_name(index)
         if isinstance(index,list):
             index = [ fix_name(i) for i in index]
-        print(index)
         new_panda = self.panda.__getitem__(index)
         # If we get back a pandas instance, we need to make a copy of FlowData
         # and return
@@ -291,7 +290,7 @@ class FlowData(FlowCore):
             if '$P{}S'.format(j+1) not in metadata:
                 metadata['$P{}S'.format(j+1)] = name
             if '$P{}N'.format(j+1) not in metadata:
-                metadata['$P{}N'.format(j+1)] = ""
+                metadata['$P{}N'.format(j+1)] = 'p{}'.format(j+1)
         
         metadata['$TOT'] = str(data.shape[0])
         fcs.write(filename, data, metadata)  

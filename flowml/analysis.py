@@ -398,18 +398,19 @@ def tsne(fdarray, new_label,  channels = None, transform = 'arcsinh', sample = 6
     """
 
     fdarray = util.make_list(fdarray)
+
+    # If the user has not provided a list of channels to use, 
+    # use the intersection of all isotope channels
     if channels is None:
-        # build intersection of lists
         channel_set = []
         for fd in fdarray:
             channel_set.append(set(fd.isotopes))
         channels = list(set.intersection(*channel_set))
     
+    # Make a copy of the data in files that we want    
     points = []
-    npoints = []
     for fd in fdarray:
         points.append(np.vstack([ fd[ch] for ch in channels ]).T)
-        npoints.append(points[-1].shape[0])
 
     # transform
     if transform == 'arcsinh':
@@ -417,41 +418,53 @@ def tsne(fdarray, new_label,  channels = None, transform = 'arcsinh', sample = 6
             # Apply the transform inplace to the data
             np.arcsinh(5*pts, pts)
     
-    # randomly sample
-    idx = []
-    subpoints = []
+    # Randomly sample to reduce the number of points
+    sample_masks = []
     for pts in points:
-        idx.append(np.random.choice(pts.shape[0], sample, replace = False))
-        subpoints.append(pts[idx[-1],:])
+        if sample < pts.shape[0]:
+            # If we have enough points to subsample
+            sample_masks.append(np.random.choice(pts.shape[0], sample, replace = False))
+        else:
+            # Otherwise we add all the points
+            sample_masks.append(np.array(range(pts.shape[0])))
 
-    # perform t-SNE
-    X = np.vstack(subpoints)
+    # Sample the points, and construct a large matrix
+    sample_points = []
+    for mask, pts in zip(sample_masks, points):
+        sample_points.append(pts[mask,:])
+    X = np.vstack(sample_points)
+
+    # Perform t-SNE
     Y = lib_tsne.tsne(X, verbose = verbose)
     assert Y is not None, ('t-SNE failed to return') 
 
-    # now expand data to reassign these points back into the dataset
-    Z = []
-    for npts, i, num in zip(npoints, idx, range(len(npoints))):
-        Z.append(np.zeros( (npts,2))*float('NaN'))
-        mask = np.arange(sample*num,sample*(num+1),dtype = int)
-        Z[-1][i,:] = Y[mask,:]
+    # Split Y into a matrix for each dataset
+    splits = np.cumsum( np.array([ mask.shape[0] for mask in sample_masks], dtype = int))
+    Y_split = np.split(Y, splits, axis = 0)
 
+    # now expand data to reassign these points back into the dataset
+    tsne_coords = []
+    for (pts, mask, Yspt) in zip(points, sample_masks, Y_split):
+        npoints = pts.shape[0]
+        Z = np.zeros((npoints, 2))*float('NaN')
+        Z[mask,:] = Yspt
+        tsne_coords.append(Z)
+
+    # If a point didn't get sampled, place its t-SNE coordinates at its nearest 
+    # neighbor.
     if backgate:
         kd = KDTree(X)
         # select points not assigned values with t-SNE
-        for pts, npts, i, ZZ in zip(points, npoints, idx, Z):
-            mask = np.ones(npts, dtype = bool)
-            mask[i] = False
-            noti = np.arange(npts)[mask]
-        
-            # find indexes of nearest points
-            d,near = kd.query(pts[noti,:],1) 
-            ZZ[noti,:] = Y[near,:]
- 
+        for pts, mask, coords, j  in zip(points, sample_masks, tsne_coords, range(len(points))):
+            nan_points = np.argwhere(np.isnan(coords[:,0]))            
+            d,near = kd.query(pts[nan_points],1) 
+            # convert back to coordinates on the whole dataset
+            coords[nan_points, :] = Y[near,:]
+            tsne_coords[j] = coords
     # add to data to FlowData structure
-    for fd, ZZ in zip(fdarray, Z):
-        fd[new_label+'1'] = ZZ[:,0]
-        fd[new_label+'2'] = ZZ[:,1]
+    for fd, coords in zip(fdarray, tsne_coords):
+        fd[new_label+'1'] = coords[:,0]
+        fd[new_label+'2'] = coords[:,1]
 
 
 
