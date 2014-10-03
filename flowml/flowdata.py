@@ -25,6 +25,8 @@ import matplotlib.pyplot as plt
 import util
 from util import ISOTOPE_LIST
 
+import bead
+
 class FlowCore(object):
     """Base class for objects containing flow cytometry data.
     Must contain a Pandas-like labeled columns data structure accessed by
@@ -80,6 +82,11 @@ class FlowCore(object):
             return hist1([self], axis1, **kwargs)
         else:
             return hist2([self], axis1, axis2,  **kwargs)
+
+
+    def project(self, *args, **kwargs):
+        return bead.project([self], *args, **kwargs)
+
 
     @property
     def tags(self):

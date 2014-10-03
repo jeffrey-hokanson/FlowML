@@ -296,7 +296,7 @@ def _2d_backend(ax, den_, xgrid, ygrid, titles, axis1, axis2, transform = None):
     #plugins.connect(ax.figure, plugins.InteractiveLegendPlugin(line_collections, titles)) 
 
 
-def mi_matrix(datasets, axes = None, label = None):
+def mean_matrix(datasets, axes = None, label = None):
     """Computes the mean intensity matrix for given axes and label
 
     Args:
@@ -307,6 +307,20 @@ def mi_matrix(datasets, axes = None, label = None):
         label (list or string): name(s) of boolean columns in datasets
     """
     fn = lambda fd, axis: fd[axis].mean()
+    
+    return fn_matrix(datasets, fn, axes, label)
+
+def median_matrix(datasets, axes = None, label = None):
+    """Computes the median intensity matrix for given axes and label
+
+    Args:
+        dataset (list): List of FlowData objects
+    
+    Kwargs:
+        axes (list): list of column names to evaluate (e.g., 'CD45')
+        label (list or string): name(s) of boolean columns in datasets
+    """
+    fn = lambda fd, axis: fd[axis].median()
     
     return fn_matrix(datasets, fn, axes, label)
 
@@ -330,7 +344,7 @@ def percent_matrix(datasets, label, relative_to = None):
     """
     
     if relative_to is None: 
-        fn = lambda fd, la: fd[fd[la]]*100./fd._original_length
+        fn = lambda fd, la: fd[fd[la]].shape[0]*100./fd._original_length
     else:
         fn = lambda fd, la: fd[fd[la]].shape[0]*100./fd[fd[relative_to]].shape[0]
     matrix = [ [ fn(fd,la) for fd in datasets] for la in label]
@@ -345,8 +359,7 @@ def percent_matrix(datasets, label, relative_to = None):
     float_frmt = lambda x: '{:,.0f}'.format( x ) if x > 1e3 else '{:,.2f}'.format( x )
     frmt_map = { np.dtype( 'int64' ):int_frmt, np.dtype( 'float64' ):float_frmt }
     frmt = { col:frmt_map[ mat.dtypes[ col ] ] for col in mat.columns if mat.dtypes[ col ] in frmt_map.keys( ) }
-    HTML(style + mat.to_html( formatters=frmt ) )
-
+    html = HTML(style + mat.to_html( formatters=frmt ) )
     return mat
 
 
@@ -391,7 +404,7 @@ def fn_matrix(datasets, fn, axes = None, label = None):
     return mfn
 
 
-def tsne(fdarray, new_label,  channels = None, transform = 'arcsinh', sample = 6000,
+def tsne(fdarray, new_label = 'tsne',  channels = None, transform = 'arcsinh', sample = 6000,
          verbose = False, backgate = True):
     """Perform t-SNE/viSNE on the FlowData object
     

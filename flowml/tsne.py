@@ -24,7 +24,12 @@ def tsne(points, perplexity = DEFAULT_PERPLEXITY, theta = DEFAULT_THETA, verbose
     npoints = points.shape[0]
     
     # this returns a generator, which returns a two entry array
-    gen = bh_tsne(points, perplexity, theta, verbose)
+    while True:
+        try:
+            gen = bh_tsne(points, perplexity, theta, verbose)
+            break
+        except:
+            pass
 
     output = np.zeros((npoints, 2))
     for j, val in enumerate(gen):
