@@ -97,10 +97,14 @@ class Threshold():
 				total += n
 		return total/self.n
 
-	def common_keys(*args):
+	def common_keys(*args, base_keys = None):
 		""" Return minimial set of markers for provided threshold types.
 		"""
-		s = set(args[0].keys)
+		if base_keys is not None:
+			s = set(base_keys)
+		else:
+			s = set(args[0].keys)
+		# Iterate through provided Threshold members, choosing minimal set.
 		for a in args[1:]:
 			k = set(a.keys)
 			s.intersection(k)
