@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import flowml as fml
 import pandas as pd
@@ -37,4 +38,34 @@ def test_recursive():
 		thresholds[key] = [10.]
 	t1 = fml.Threshold(fd, thresholds)
 	t2 = fml.Threshold(fd, thresholds, method = 'product')
-	assert t1 == t2 
+	assert t1 == t2
+
+
+def test_getitem():
+	"""Check that we assign the ratios when looking at only one key.
+	"""
+	n = int(1e5)
+	fd = random_flowdata(ncol = 12, nrow = n)
+	thresholds = {}
+	for key in fd.columns:
+		thresholds[key] = [10.]
+	t = fml.Threshold(fd, thresholds)
+
+	for key in fd.columns:
+		count = np.sum(fd[key] < thresholds[key])
+		assert count/n == t[{key: 0}]
+		count = np.sum(fd[key] > thresholds[key])
+		assert count/n == t[{key: 1}]
+
+def test_intersection():
+	fd1 = random_flowdata(ncol = 2, nrow = 100)
+	fd2 = random_flowdata(ncol = 3, nrow = 100)
+	thresholds = {}
+	for key in fd2.columns:
+		thresholds[key] = [10.]
+	t1 = fml.Threshold(fd1, thresholds)
+	t2 = fml.Threshold(fd2, thresholds)
+
+	common_keys = t1.common_keys(t2)
+	assert sorted(common_keys) == sorted(['CD1', 'CD2'])
+	

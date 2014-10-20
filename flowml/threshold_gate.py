@@ -73,6 +73,41 @@ class Threshold():
 			out+=' -> {}\n'.format(count)
 		return out
 
+
+	def __getitem__(self, coord):
+		""" Return the ratio of counts in the cooresponding coordinates, summing
+			over unspecified coordinates."""
+		try:
+			active_keys = set(coord.keys())
+		except:
+			raise TypeError
+		# Make sure we are not requesting an unallowed key
+		for key in active_keys:
+			if key not in self.keys:
+				raise KeyError
+
+		total = 0
+		for c, n in zip(self.coords, self.counts):
+			use = True
+			for key in active_keys:
+				if c[key] != coord[key]:
+					use = False
+					break
+			if use:
+				total += n
+		return total/self.n
+
+	def common_keys(*args):
+		""" Return minimial set of markers for provided threshold types.
+		"""
+		s = set(args[0].keys)
+		for a in args[1:]:
+			k = set(a.keys)
+			s.intersection(k)
+		return list(s)
+			
+
+
 def product_threshold(fd, thresholds, progress):
 	keys = list(thresholds.keys())
 	n = fd.shape[0]
