@@ -3,8 +3,174 @@ import util
 import itertools
 import numpy as np
 from ipython_progress import progress_bar
+from copy import copy
 
 # TODO: Multiprocessing using https://docs.python.org/2/library/multiprocessing.html
+
+
+def sort_group(x, *args):
+	"""Utility function sorting a set of lists by the first list
+	"""
+	I = sorted(range(len(x)), key = lambda k: x[k])		
+	x = [x[i] for i in I]
+	out = [x]
+	for y in args:
+		out.append( [y[i] for i in I])
+	return out
+
+class Threshold():
+	def __init__(self, fd, thresholds, progress = False, method = 'recursive'):
+		"""
+		"""
+		# Select only the keys that apply to this dataset
+		threshold_keys = list(thresholds.keys())
+		keys = []
+		active_thresholds = {}
+		for key in threshold_keys:
+			try: 
+				fd[key]
+				keys.append(key)
+				active_thresholds[key] = thresholds[key]
+			except:
+				pass
+		self.keys = keys
+		# number of rows
+		self.n = fd[keys[0]].shape[0]
+		
+		if method == 'recursive':
+			self.coords, self.counts = recursive_threshold(fd, active_thresholds, progress)
+		elif method == 'product':
+			self.coords, self.counts = product_threshold(fd, active_thresholds, progress)
+		else:
+			raise NotImplementedError
+
+	def __eq__(self, other):
+		"""Two threshold gates are equal if their counts and coordinates are equal"""
+		
+		c1, t1 = sort_group(self.coords, self.counts)
+		c2, t2 = sort_group(other.coords, other.counts)
+		n1 = self.n
+		n2 = other.n
+
+		if len(c1) != len(c2):
+			return False
+		
+		if c1 != c2:
+			return False
+
+		# compute ratios of counts	
+		r1 = [t/n1 for t in t1]
+		r2 = [t/n2 for t in t2]
+		# ensure the ratios match for each
+		return  np.sum(np.abs(np.array(r1) - np.array(r2)))< 1e-10
+
+
+	def __repr__(self):
+		out = ''
+		for coord, count in zip(self.coords, self.counts):
+			for key in coord:
+				out += '{}: {}, '.format(key, coord[key])
+			out+=' -> {}\n'.format(count)
+		return out
+
+def product_threshold(fd, thresholds, progress):
+	keys = list(thresholds.keys())
+	n = fd.shape[0]
+	# number of distinct populations
+	npop = 1
+	# list of coordinates on each axis for itertools.product
+	coords = []
+	for key in keys:
+		nsplits = len(thresholds[key])+1
+		coords.append(range(0, nsplits))
+		npop *= nsplits
+	# precompute partitions
+	splits = {}
+	for j, key in enumerate(keys):
+		key_splits = []
+		cuts = thresholds[key] 
+		for c in coords[j]:
+			if c  == 0:
+				val = (fd[key] < cuts[0])
+			elif c == len(cuts):
+				val = (fd[key]) > cuts[-1]
+			elif c > 0:
+				val = (fd[key] > cuts[c-1]) & (fd[key]< cuts[c])     
+			key_splits.append(val)
+		splits[key] = key_splits
+
+	# Now compute all permutations
+	product_iter = itertools.product(*coords)
+		
+	nonempty_coord = []
+	nonempty_count = []
+	for coord in product_iter:
+		val = np.ones( (fd.shape[0],), dtype = bool)
+		for c, key in zip(coord, keys):
+			val *= splits[key][c]
+		
+		count = np.sum(val)
+		if count > 0:
+			tmp_coord = {}
+			for c, key in zip(coord, keys):
+				tmp_coord[key] = c
+			nonempty_coord.append(tmp_coord)
+			nonempty_count.append(count)
+
+	return (nonempty_coord, nonempty_count)
+
+
+def recursive_threshold(fd, thresholds, progress):
+	keys = list(thresholds.keys())
+	n = fd.shape[0]
+	# number of distinct populations
+	npop = 1
+	# precompute partitions
+	splits = {}
+	for j, key in enumerate(keys):
+		key_splits = []
+		cuts = thresholds[key] 
+		for c in range(len(cuts)+1):
+			if c  == 0:
+				val = (fd[key] < cuts[0])
+			elif c == len(cuts):
+				val = (fd[key]) > cuts[-1]
+			elif c > 0:
+				val = (fd[key] > cuts[c-1]) & (fd[key]< cuts[c])     
+			key_splits.append(np.array(val))
+		splits[key] = key_splits
+
+	nonempty_coord = []
+	nonempty_count = []
+	
+	# Recursive function
+	def recurse(keys, val = None, coord = {}):
+		if val == None:
+			val = np.ones( (n,) , dtype = bool)
+		new_keys = copy(keys)
+		key = new_keys.pop(0)
+		for k in range(len(thresholds[key])+1):
+			# update coordinates
+			new_coord = copy(coord)
+			new_coord[key] = k
+			# Apply 
+			new_val = val*splits[key][k]
+			count = np.sum(new_val)
+			if count > 0:
+				if len(new_keys) > 0:
+					recurse(new_keys, new_val, new_coord)
+				else:
+					nonempty_coord.append(new_coord)
+					nonempty_count.append(count)
+
+	recurse(keys)
+	return (nonempty_coord, nonempty_count) 
+		
+
+
+
+
+
 
 def threshold_gate(fdarray, thresholds, relative_to = None, unapplied = True, progress = True):
 	"""

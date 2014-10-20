@@ -190,23 +190,42 @@ class FlowCore(object):
 
 
 class FlowData(FlowCore):
-    def __init__(self, filename = None,):
+    def __init__(self, filename = None, panda = None, metadata = None):
         """Load an FCS file specified by the filename.
         """
-        (data, metadata, analysis, meta_analysis) = fcs.read(filename)
-        
+
+        if filename is not None:
+            (data, metadata, analysis, meta_analysis) = fcs.read(filename)
+        elif panda is not None:
+            self.panda = panda
+            data = None
+            analysis = None
+            meta_analysis = None
+            # Fill the metadata if necessary
+            if metadata is None:
+                metadata = {}
+                for j, key in enumerate(self.panda.columns):
+                    metadata['$P{:d}S'.format(j+1)] = key
+
+            if '$PAR' not in metadata:
+                metadata['$PAR'] = panda.shape[1]
+            if '$TOT' not in metadata:
+                metadata['$TOT'] = panda.shape[0]
+
+
         self._metadata = metadata
         self._analysis = analysis
         self._meta_analysis = meta_analysis
         self._data = data
-        
         # A dictionary that converts column names to index numbers
         # currently we default to using the long name value $PnS
         self._alt_names = util.alt_names(self.names, self.short_names)
-
+        
         # There is an endian-ness bug that requires changing the type of data to satisfy
         # pandas
-        self.panda = pd.DataFrame(np.transpose(data).astype('f8'),  columns = self.names)
+        if filename is not None:
+            self.panda = pd.DataFrame(np.transpose(data).astype('f8'),  columns = self.names)
+
         
         # Name that will appear in the legend of plots
         self.title = ''
@@ -272,13 +291,19 @@ class FlowData(FlowCore):
         """List of column names in the $PnN section of the FCS file
         Sometimes this corresponds to each marker; e.g., CD45.
         """
-        # TODO: PnN is actually the short name parameter
-        
-        return [self._metadata.get('$P{:d}N'.format(j),'{:d}'.format(j)) for j in range(1,self.nparameters+1)]
+        # NOTE: PnN is actually the short name parameter
+        try:
+            names = [self._metadata.get('$P{:d}N'.format(j),'{:d}'.format(j)) for j in range(1,self.nparameters+1)]
+        except:
+            names = None
+        return names
     @property
     def names(self):
-        return [self._metadata.get('$P{:d}S'.format(j), self.short_names[j-1]) for j in range(1,self.nparameters+1)]
-    
+        try:
+            names = [self._metadata.get('$P{:d}S'.format(j), self.short_names[j-1]) for j in range(1,self.nparameters+1)]
+        except:
+            names = None
+        return names
 
     
     def fcs_export(self, filename, dtype = None):
