@@ -25,6 +25,10 @@ def sort_group(x, *args):
 
 
 def threshold_expression_matrix(threshold_list, keys = None):
+	""" Build a matrix containing the percentage of cells of each type.
+	This only returns populations that are nonzero for at least one of the 
+	threshold elements.
+	"""
 	if keys is None:
 		keys = common_keys(threshold_list)
 	
