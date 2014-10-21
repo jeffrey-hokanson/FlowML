@@ -50,4 +50,10 @@
 
 
 /* Uploading as Gists */
-IPython.load_extensions('gist');
+/* IPython.load_extensions('gist'); */
+$([IPython.events]).on('app_initialized.NotebookApp', function(){
+	require(['/static/custom/d3.min.js'], function(loader){
+		loader.parameters('dummy');
+		console.log('D3.js loaded');
+	});
+});
