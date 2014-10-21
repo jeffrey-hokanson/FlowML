@@ -7,6 +7,11 @@ from copy import copy
 
 # TODO: Multiprocessing using https://docs.python.org/2/library/multiprocessing.html
 
+class NotComparableError(Exception):
+	def __init__(self, value = None):
+		self.value = value
+	def __str__(self):
+		return "Thresholds not comparable"
 
 def sort_group(x, *args):
 	"""Utility function sorting a set of lists by the first list
@@ -17,6 +22,61 @@ def sort_group(x, *args):
 	for y in args:
 		out.append( [y[i] for i in I])
 	return out
+
+
+def threshold_expression_matrix(threshold_list, keys = None):
+	if keys is None:
+		keys = common_keys(threshold_list)
+	
+	# We do not check if the thresholds were drawn at the same points, but we
+	# do check each key has the same number of cuts
+	check_comparable(threshold_list, keys)
+	
+	# Take a union over the non-empty coordinates
+	def coord_to_list(coords):
+		return [ tuple([c[key] for key in keys]) for c in coords]
+
+	coords = set(coord_to_list(threshold_list[0].coords))
+	for t in threshold_list[1:]:
+		coords |= set(coord_to_list(t.coords))
+
+	# Now build matrix of counts
+	X = np.zeros( (len(coords), len(threshold_list)) )
+	dict_coords = []
+	for j, c in enumerate(coords):
+		# Convert list back into dictionary
+		c = dict( (k,v) for k, v in zip(keys, c) )
+		dict_coords.append(c)
+		for k, t in enumerate(threshold_list):
+			X[j,k] = t[c]
+
+	return (dict_coords, X)
+	
+def check_comparable(threshold_list, keys = None):
+	""" Ensure that thresholds have the same number of partitions per key
+	"""
+	if keys is None:
+		keys = common_keys(threshold_list)
+	
+	for key in keys:
+		ncuts = [ len(t.thresholds[key]) for t in threshold_list]
+		if all(ncut == ncuts[0] for ncut in ncuts) is False:
+			raise NotComparableError()
+	return True	
+
+def common_keys(threshold_list,  base_keys = None): 
+	""" Return minimial set of markers for provided threshold types.
+	"""
+	if base_keys is not None:
+		s = set(base_keys)
+	else:
+		s = set(threshold_list[0].keys)
+	# Iterate through provided Threshold members, choosing minimal set.
+	for t in threshold_list[1:]:
+		k = set(t.keys)
+		s.intersection(k)
+	return list(s)
+
 
 class Threshold():
 	def __init__(self, fd, thresholds, progress = False, method = 'recursive'):
@@ -36,6 +96,10 @@ class Threshold():
 		self.keys = keys
 		# number of rows
 		self.n = fd[keys[0]].shape[0]
+
+		self.thresholds = {}
+		for key in keys:
+			self.thresholds[key] = thresholds[key]
 		
 		if method == 'recursive':
 			self.coords, self.counts = recursive_threshold(fd, active_thresholds, progress)
@@ -97,18 +161,11 @@ class Threshold():
 				total += n
 		return total/self.n
 
-	def common_keys(*args, base_keys = None):
+	def common_keys(threshold_list, **kwargs):
 		""" Return minimial set of markers for provided threshold types.
 		"""
-		if base_keys is not None:
-			s = set(base_keys)
-		else:
-			s = set(args[0].keys)
-		# Iterate through provided Threshold members, choosing minimal set.
-		for a in args[1:]:
-			k = set(a.keys)
-			s.intersection(k)
-		return list(s)
+		threshold_list.append(self)
+		return common_keys(threshold_list, **kwargs)
 			
 
 
