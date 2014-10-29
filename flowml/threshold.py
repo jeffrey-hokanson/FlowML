@@ -381,4 +381,5 @@ def threshold_gate(fdarray, thresholds, relative_to = None, unapplied = True, pr
 	row_names = [row_names[j] for j in I] 
 	return rows, row_names
 	
-		
+
+

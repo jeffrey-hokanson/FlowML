@@ -1,0 +1,31 @@
+table.threshold {
+	border-collapse: collapse;
+}
+.threshold > thead > tr > th,
+.threshold > tbody > tr > td {
+	border: 1px solid silver;
+	font-family: "Optima", serif;
+	font-size: 10pt;
+}
+.threshold > thead > tr > th {
+	font-size: 16px;
+	text-align: center;
+}
+td.threshold_coord {
+	font-size: 14px;
+	text-align: center;
+	padding: 0px;
+}
+td.threshold_head  {
+	font-size: 10px;
+	font-weight: bold;
+	white-space: nowrap;
+}
+
+path {
+	stroke: steelblue;
+	stroke-width: 2;
+	fill: none;
+}
+	
+}

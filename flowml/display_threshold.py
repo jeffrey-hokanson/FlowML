@@ -35,34 +35,16 @@ def threshold_sparkline(coords, X, column_names = None, show_percentages = True)
 	
 	.threshold table, th, td {
 		font: 10px Arial;
+		white-space: nowrap;
 	}
 
 		path {
 				stroke: steelblue;
-				stroke-width: 1;
+				stroke-width: 2;
 				fill: none;
 			}
 			
-			.axis {
-			  shape-rendering: crispEdges;
-			}
-
-			.x.axis line {
-			  stroke: lightgrey;
-			}
-
-			.x.axis .minor {
-			  stroke-opacity: .5;
-			}
-
-			.x.axis path {
-			  display: none;
-			}
-
-			.y.axis line, .y.axis path {
-			  fill: none;
-			  stroke: #000;
-			}
+		}
 	</style>
 	"""
 	# See: http://bl.ocks.org/benjchristensen/2579599
@@ -112,7 +94,7 @@ def threshold_sparkline(coords, X, column_names = None, show_percentages = True)
 
 	table+="</table>"
 
-	# Write the table	
+	# Write the table
 	h = HTML(html+table)
 	display(h)	
 
@@ -124,9 +106,9 @@ def threshold_sparkline(coords, X, column_names = None, show_percentages = True)
 		function sparkline(elemId, data){
 			var width = 100;
 			var height = 25;
-			
-			var x = d3.scale.linear().domain([0, data.length]).range([0, width]);
-			var y = d3.scale.linear().domain(d3.extent(data)).range([height, 0]);
+			var margin = 2;
+			var x = d3.scale.linear().domain([0, data.length - 1]).range([0+margin, width-margin]);
+			var y = d3.scale.linear().domain(d3.extent(data)).range([height-margin, 0+margin]);
 			
 			var line = d3.svg.line()
 					.x(function(d, i) { return x(i);})

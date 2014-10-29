@@ -345,15 +345,17 @@ class FlowData(FlowCore):
         return tags
                 
 
+    # TODO: This is broken
     def rename(self, columns):
         """Rename selected columns
         provide a dictionary mapping old names to new names
         """ 
         # Rename the columns in the metadata field
-        for old_name, new_name in columns.iteritems():
-            assert old_name in self._columns, "Error in _columns"
-            idx = self._columns.index(old_name)
-            self._columns[idx] = new_name
+        # TODO: Make sure this applies to metadata field
+        #for old_name, new_name in columns.iteritems():
+        #    assert old_name in self._columns, "Error in _columns"
+        #    idx = self._columns.index(old_name)
+        #    self._columns[idx] = new_name
         self.panda.rename(columns = columns, inplace = True)
 
 
