@@ -16,8 +16,7 @@ from threshold import Threshold, common_keys
 from threshold import threshold_expression_matrix
 # Temporary
 from display_threshold import *
-from display_threshold_class import *
-from d3vis import *
+from threshold_table import *
 # Disabled temporarly
 #import mpld3
 #mpld3.enable_notebook()
