@@ -162,7 +162,7 @@ class threshold_table:
 					js += "var data = "+json.dumps(list(X_row)) + ";\n"
 					js += "sparkline(%s, data);" % (elemid,) +"\n"
 				if plot_type is 'ratio':
-					js += "ratio_color(%s,1,0,10);" % (elemid,) +'\n'	
+					js += "ratio_color(%s,%g);" % (elemid,X_row[1]/X_row[0]) +'\n'	
 
 
 
