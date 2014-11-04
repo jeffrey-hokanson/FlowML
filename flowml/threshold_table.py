@@ -14,31 +14,45 @@ ALLOWED_PLOT_TYPES = ['sparkline', 'ratio']
 
 class threshold_table:
 
-	def __init__(self, thresholds, names, title = None, plot_type = 'sparkline'):
-		"""Provide a list of coordinates to display and optional associated percentages
+	def __init__(self, *args, **kwargs):
+		"""Provide a list of coordinates to display and optional associated percentages.
+		Note, for calling arguments, see the add_thresholds function.
 		"""
 
-		self.id_ = 'X'+str(uuid.uuid4().hex)
-		self.thresholds = [thresholds]
-		self.names = [names]
-		self.titles = [title]
-
-		assert plot_type in ALLOWED_PLOT_TYPES
-		self.plot_types = [plot_type]
 		
-		assert len(thresholds) == len(names)
-
+		self.id_ = 'X'+str(uuid.uuid4().hex)
+		self.thresholds = []
+		self.names = []
+		self.titles = []
+		self.flowdatas = []
+		self.plot_types = []
+		self.scalings = []
 		# TODO: Add getter/setter
 		self.display_headers_every_n_rows = 5
 
 
-	def add_thresholds(self, thresholds, names, title = None, plot_type = 'sparkline'):
+		self.add_thresholds(*args, **kwargs)
+		
+
+
+
+	def add_thresholds(self, thresholds, names, title = None, plot_type = 'sparkline', flowdata = None, scaling = None):
 		"""Add additional types of data (i.e., enter 
 		"""
+		
+		assert len(thresholds) == len(names)
+		assert plot_type in ALLOWED_PLOT_TYPES
+		if flowdata is not None:
+			assert len(flowdata) == len(thresholds)
+		
 		self.thresholds += [thresholds]
 		self.names += [names]
 		self.titles.append(title)
 		self.plot_types.append(plot_type)
+		self.flowdatas.append(flowdata)
+		self.scalings.append(scaling)
+
+		# Reset the coordinates if we've added a new set
 		self.coords = None
 		self.Xs = None
 
@@ -114,7 +128,22 @@ class threshold_table:
 			table += title
 			table += '</th>'
 		table += '</thead>'
-		table += '<tbody>'	
+		table += '<tbody>'
+
+
+		# Load javascript
+		js_name = os.path.join(os.path.dirname(__file__), 'sparkline.js')
+		with open(js_name) as f:
+			js = f.read()
+
+		js_name = os.path.join(os.path.dirname(__file__), 'ratio_color.js')
+		# Add javascript for plotting
+		with open(js_name) as f:
+			js += f.read()
+
+
+
+
 		# Table body
 		for row, coord in enumerate(coords):
 			# Add header
@@ -132,37 +161,37 @@ class threshold_table:
 				table += '</td>'
 
 		
-			for k, X in enumerate(Xs):
+			for k, (X, scaling) in enumerate(zip(Xs, self.scalings)):
 				# Insert graphic
-				table += '<td> <svg class = "sparkline", id = "{}"></svg></td>'.format(self.id_ + "Z%d_%d" % (k,row) )
-				for x in X[row]:
-					table += '<td> %5.3g%%</td>' % (100.*x,)
+				elem_id = self.id_+'Z%d_%d' %(k,row)
+				table += '<td> <svg class = "sparkline", id = "{}"></svg></td>'.format(elem_id )
+				
+				# Scale if requested
+				if scaling is None:
+					row_vals = X[row]
+					for x in row_vals:
+						table += '<td> %5.3g%%</td>' % (100.*x,)
+				else:
+					row_vals = scaling*X[row]
+					for x in row_vals:
+						table += '<td> %5.1f</td>' % (x,)
+		
+				# insert plot
+				plot_type = self.plot_types[k]
+				if plot_type is 'sparkline':
+					js += "var data = "+json.dumps(list(row_vals)) + ";\n"
+					js += "sparkline(%s, data);" % (elem_id,) +"\n"
+				if plot_type is 'ratio':
+					js += "ratio_color(%s,%g);" % (elem_id,row_vals[1]/row_vals[0]) +'\n'	
+				
+
+
 
 			table += '</tr>'
 		table += '</tbody>'
 		table += '</table>'
 
 
-
-		# Load javascript
-		js_name = os.path.join(os.path.dirname(__file__), 'sparkline.js')
-		with open(js_name) as f:
-			js = f.read()
-
-		js_name = os.path.join(os.path.dirname(__file__), 'ratio_color.js')
-		# Add javascript for plotting
-		with open(js_name) as f:
-			js += f.read()
-
-		for row, coord in enumerate(coords):
-			for k, (X, plot_type) in enumerate(zip(Xs, self.plot_types)):
-				X_row = X[row]
-				elemid = self.id_+'Z%d_%d' %(k,row)
-				if plot_type is 'sparkline':
-					js += "var data = "+json.dumps(list(X_row)) + ";\n"
-					js += "sparkline(%s, data);" % (elemid,) +"\n"
-				if plot_type is 'ratio':
-					js += "ratio_color(%s,%g);" % (elemid,X_row[1]/X_row[0]) +'\n'	
 
 
 
