@@ -12,7 +12,7 @@ function ratio_color(elemId, value){
 	var colors = ["#b2182b","#ef8a62","#fddbc7","#f7f7f7","#d1e5f0","#67a9cf","#2166ac"];
 	var colormap = d3.scale.log()
 		    .domain([1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3 ])
-			.range(colors)
+			.range(colors.reverse())
 			.interpolate(d3.interpolateHcl);
 
 
@@ -21,10 +21,17 @@ function ratio_color(elemId, value){
 			.attr('height', height);
 
 	plot.append("rect");
+
+
+	var color = colormap(value);
+	if ( (! isFinite(value)) || isNaN(value) || value == 0.0 ){
+		color = "#cccccc"
+	};
+
 	var square = plot.append("svg:rect")
 		.attr('x',0)
 		.attr('y',0)
-		.attr('fill',colormap(1/value))
+		.attr('fill',color)
 		.attr('width', width)
 		.attr('height', height);
 

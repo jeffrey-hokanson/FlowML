@@ -100,7 +100,8 @@ class Threshold():
 		self.keys = keys
 		# number of rows
 		self.n = fd[keys[0]].shape[0]
-
+		# Not sure if we should keep these around due to memory considerations
+		self.fd = fd
 		self.thresholds = {}
 		for key in keys:
 			self.thresholds[key] = thresholds[key]
@@ -164,6 +165,18 @@ class Threshold():
 			if use:
 				total += n
 		return total/self.n
+
+	def in_coord(self, coord):
+		gate = np.ones( (self.fd.shape[0],), dtype = bool)
+		for key in coord:
+			cuts = self.thresholds[key]
+			if coord[key] == 0:
+				gate *= self.fd[key] < cuts[0]
+			elif coord[key] == len(cuts):
+				gate *=  self.fd[key] > cuts[-1]]
+			else:
+				gate *= (self.fd[key] > cuts[coord[key]-1]) & (self.fd[key] < cuts[coord[key]])
+		return copy(fd[gate])
 
 	def common_keys(threshold_list, **kwargs):
 		""" Return minimial set of markers for provided threshold types.
