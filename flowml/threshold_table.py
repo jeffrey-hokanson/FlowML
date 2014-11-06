@@ -248,14 +248,26 @@ class threshold_table:
 						table += '<td> <svg class = "sparkline", id = "{}"></svg></td>'.format(elem_id)
 						
 						# Reformat data to be used by javascript
-						coordinate = {}
-						coordinate['median'] = [np.median(fd[channel]) for fd in cells_in_threshold]
-						coordinate['q3'] = [np.percentile(fd[channel], 75) for fd in cells_in_threshold]
-						coordinate['q1'] = [np.percentile(fd[channel], 25) for fd in cells_in_threshold]
 						background = {}
 						background['median'] = bulk_median[channel][j]
 						background['q1'] = bulk_q1[channel][j]
 						background['q3'] = bulk_q3[channel][j]
+
+						# gather data for particular hyper-cube
+						coordinate = {}
+						coordinate['median'] = []
+						coordinate['q3'] = []
+						coordinate['q1'] = []
+						for fd in cells_in_threshold:
+							if fd.shape[0] > 0:
+								quartiles = np.percentile(fd[channel], [25,50,75])
+							else:
+								quartiles = float('nan')*np.ones((3,))
+
+							coordinate['q1'].append(quartiles[0])
+							coordinate['median'].append(quartiles[1])
+							coordinate['q3'].append(quartiles[2])
+						
 						js += "var coordinate = "+json.dumps(coordinate) + ";\n"
 						js += "var background = "+json.dumps(background) + ";\n"
 						js += "expression(%s, coordinate, background);" % (elem_id,) +"\n"
