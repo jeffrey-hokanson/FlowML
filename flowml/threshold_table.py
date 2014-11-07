@@ -61,6 +61,8 @@ class threshold_table:
 	def add_expression(self, channel, title = None, plot_type = 'sparkline'):
 		""" Add a plot showing the expression of marker in this category
 		"""
+
+		assert channel not in self.expression_plots
 		self.expression_plots.append(channel)
 		self.expression_plot_types.append(plot_type)
 		if title is None:
@@ -86,9 +88,12 @@ class threshold_table:
 		self.Xs = Xs
 
 	
-	def show(self, rows = None, filename = None, limit = None):
+	def show(self, rows = None, filename = None, limit = None, filter_coord = None,
+			 sort_key = None):
 		""" Render the table
-			rows = 
+			rows = a slice operator
+			filter_coord = require coordinates
+			sort_key - takes a tuple of (coordinate, row)
 		"""
 
 		if self.coords is None or self.Xs is None:
@@ -97,6 +102,25 @@ class threshold_table:
 		coords = copy(self.coords)
 		Xs = copy(self.Xs)
 
+
+		# Filter out unwanted rows based on coordinates
+		if filter_coord is not None:
+			updated_coords = []
+			updated_index = []
+			for j,c in enumerate(coords):
+				use = True
+				for key in filter_coord:
+					if c[key] != filter_coord[key]:
+						use = False
+						break
+				if use:
+					updated_coords.append(c) 
+					updated_index.append(j)
+			updated_index = np.array(updated_index, dtype = int)
+			# Update the matrices
+			coords = updated_coords
+			Xs = [X[updated_index] for X in Xs]
+		
 		# Ensure we aren't asking for more populations than we have
 		if limit is None:
 			limit = 100
@@ -104,11 +128,23 @@ class threshold_table:
 		if rows is None:
 			rows = slice(0,limit)
 
-		# TODO: enable user sorting
-		I = np.argsort(-np.sum(Xs[0],axis =1))
+		# Sorting by the user
+		if sort_key is None:
+			# Default sort: mean 
+			I = np.argsort(-np.sum(Xs[0],axis =1))
+		else:
+			# build list of rows of data and coordinates
+			if self.scalings[0] is None:
+				sort_data = [ (c, row) for (c,row) in zip(coords, Xs[0]) ]
+			else:
+				sort_data = [ (c, row*self.scalings[0]) for (c,row) in zip(coords, Xs[0]) ]
+			I = [i[0] for i in sorted(enumerate(sort_data), key = lambda x: sort_key(x[1]), reverse = True)]
+		
+		# coordinates and data into the right order  
 		coords = [coords[i] for i in I[rows]]
 		Xs = [np.array([X[i] for i in I[rows]]) for X in Xs]
-	
+
+
 		# Compute bulk properties for selected expression channels
 		bulk_q1 = {}
 		bulk_q3 = {}
