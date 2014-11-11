@@ -173,7 +173,7 @@ class Threshold():
 			if coord[key] == 0:
 				gate *= self.fd[key] < cuts[0]
 			elif coord[key] == len(cuts):
-				gate *=  self.fd[key] > cuts[-1]]
+				gate *=  self.fd[key] > cuts[-1]
 			else:
 				gate *= (self.fd[key] > cuts[coord[key]-1]) & (self.fd[key] < cuts[coord[key]])
 		return copy(fd[gate])

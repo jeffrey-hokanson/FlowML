@@ -168,27 +168,6 @@ class FlowCore(object):
         return fig 
             
 
-    def project(self, line, name= None):
-        """Project measurements onto the line defined by line
-        If name is specified, add the a new column with the specified name
-        """
-        
-        X = []
-        a = []
-        for key in line:
-            if key in self:
-                a.append(line[key])
-                X.append(self[key])
-        X = np.vstack(X)
-        a = np.array(a)
-        Px = np.dot(a,X)/np.sqrt(np.dot(a,a))
-
-        if name is None:
-            return Px
-        else:
-            self[name] = Px
-
-
 class FlowData(FlowCore):
     def __init__(self, filename = None, panda = None, metadata = None):
         """Load an FCS file specified by the filename.
