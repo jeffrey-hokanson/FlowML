@@ -2,6 +2,9 @@
 from __future__ import division
 import numpy as np
 import util
+from louvain import *
+from scipy import sparse as sp
+from ipython_progress import progress_bar
 
 def project(fdarray, line = 'bead', column = None):
     """Project onto a subspace defined by line.
@@ -56,7 +59,7 @@ def calibrate(fd, bead_indicator, bead_value, target_median):
 
     bead_indicator - boolean channel indicating if event is bead or not
     bead_value - channel in fd of the "beadness" of an event; 
-                useually from project.
+                usually from project.
     target_median - value for the median of the bead_value 
     """
 
@@ -66,3 +69,64 @@ def calibrate(fd, bead_indicator, bead_value, target_median):
         #fd[ch] = fd[ch].apply(lambda x: x*scale)
         fd[ch] = fd[ch].copy()*scale
 
+
+
+def identify_beads(fd, bead_signature = None):
+    
+
+    # Process options for the bead signature
+    if bead_signature is None:
+        bead_signature = 'quadbead'
+    if bead_signature == 'eubead':
+        bead_signature = {'Eu151': 47.8, 'Eu153': 52.1} 
+    if bead_signature == 'quadbead':
+        bead_signature = {'Ce140': 88.45, 'Ce142':11.11, 'Eu151':47.8,
+                'Eu153':52.1, 'Ho165':100., 'Lu175':97.4, 'Lu176': 2.6}
+
+    ############################################################################ 
+    # STAGE 1: Estimate bead intensity
+    ############################################################################ 
+    beadness = project(fd, bead_signature)
+
+
+    
+
+    # First assemble the sparse adjaceny matrix
+    sigma = 50
+    tol = 1e-7
+    # Empty arrays for each point
+    i = []
+    j = []
+    v = []
+    # build array of the distances between points, measured by a gaussian with fixed width
+    #X = np.exp(-np.add.outer(beadness, -beadness)**2/(2*sigma**2))*(1/(sigma*np.sqrt(2*np.pi)))
+    # Make this matrix sparse by only keeping elements above tol
+    #I = np.argwhere(X>tol)  
+    #for II in I:
+    #    i.append(II[0])
+    #    j.append(II[1])
+    #    v.append(X[II])
+
+    # Dumb enumerative approach
+    #for ii, x in enumerate(beadness):
+    #    for jj, y in enumerate(beadness):
+    #        vv = np.exp( (x-y)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
+    #        if vv > tol
+    #            i.append(ii)
+    #            j.append(jj)
+    #            v.append(vv)
+
+
+    for ii, x in progress_bar(enumerate(beadness), expected_size = beadness.shape[0]):
+        row = np.exp(-(x -beadness)**2/(2*sigma**2))*(1/(sigma*np.sqrt(2*np.pi)))
+        J = np.argwhere(row>tol)
+        for jj in J:
+            i.append(ii)
+            j.append(jj)
+            v.append(row[jj])
+
+
+
+    # Weighted distance matrix
+    A = sp.coo_matrix( (v, (i,j)))
+    print A
