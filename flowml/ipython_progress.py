@@ -13,7 +13,7 @@ def progress_bar(iterator, expected_size = None, update_every = 10):
 	"""
 	<div>
 	<div style="border: 1px solid black; width:500px">
-	  <div id="%s" style="background-color:red; width:0%%">&nbsp;</div>
+	  <div id="%s" style="background-color:steelblue; width:0%%">&nbsp;</div>
 	</div> 
 	<div id="%s">
 	Hello world

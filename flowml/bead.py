@@ -1,5 +1,5 @@
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
-
+from __future__ import division
 import numpy as np
 import util
 
@@ -47,4 +47,22 @@ def project(fdarray, line = 'bead', column = None):
 
     if len(fdarray) == 1:
         return Px
+
+
+def calibrate(fd, bead_indicator, bead_value, target_median):
+    """ Calibrate the provided flow data objects on their physical tags values;
+    all other derived tags should be recomputed.
+    This modifies data in place
+
+    bead_indicator - boolean channel indicating if event is bead or not
+    bead_value - channel in fd of the "beadness" of an event; 
+                useually from project.
+    target_median - value for the median of the bead_value 
+    """
+
+    sample_median = np.median(fd[fd[bead_indicator]][bead_value])
+    scale = target_median/sample_median
+    for ch in fd.physical_tags:
+        #fd[ch] = fd[ch].apply(lambda x: x*scale)
+        fd[ch] = fd[ch].copy()*scale
 
