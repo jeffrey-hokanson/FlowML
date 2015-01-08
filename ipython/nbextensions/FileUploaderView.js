@@ -1,0 +1,1 @@
+../../external/nbupload/nbupload/FileUploaderView.js

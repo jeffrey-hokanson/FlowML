@@ -1,0 +1,1 @@
+../../external/nbupload/nbupload/FileUploaderWidget.py
