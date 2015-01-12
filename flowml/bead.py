@@ -4,9 +4,9 @@ import numpy as np
 import util
 from louvain import *
 from scipy import sparse as sp
-from ipython_progress import progress_bar
+from sklearn.cluster import KMeans
 
-def project(fdarray, line = 'bead', column = None):
+def project(fdarray, line = 'bead', column = None, orth = False):
     """Project onto a subspace defined by line.
     Line is either a string, specifying a predefined line or a dictionary 
     with keys that are isotope labels and values that are ratios,
@@ -43,8 +43,14 @@ def project(fdarray, line = 'bead', column = None):
             if isotope in line:
                 a[j]=line[isotope]
         X = np.vstack([fd[ch] for ch in fd.isotopes])
-        Px = np.dot(a,X)/np.sqrt(np.dot(a,a))
         
+        
+        # Compute the orthogonal projector if asked.
+        if not orth:
+            Px = np.dot(a,X)/np.sqrt(np.dot(a,a))
+        else:
+            Px = np.sqrt(np.sum( (X - np.outer(a,np.dot(a,X))/np.dot(a,a) )**2, axis = 0))
+
         if column is not None:
             fd[column] = Px
 
@@ -84,49 +90,22 @@ def identify_beads(fd, bead_signature = None):
                 'Eu153':52.1, 'Ho165':100., 'Lu175':97.4, 'Lu176': 2.6}
 
     ############################################################################ 
-    # STAGE 1: Estimate bead intensity
+    # STAGE 1: Estimate bead location using K-means.
     ############################################################################ 
     beadness = project(fd, bead_signature)
+    # Form two clusters using K-Means on the beadness projection
+    km = KMeans(2)
+    n = beadness.shape[0]
+    c = km.fit_predict(np.reshape(beadness, (n,1)))
+    centers = km.cluster_centers_
+    if centers[0] > centers[1]:
+        bead = (c == 0)
+    else:
+        bead = (c == 1)
+    ############################################################################ 
+    # STAGE 2: Estimate bead intensity
+    ############################################################################ 
 
-
+    return bead
     
 
-    # First assemble the sparse adjaceny matrix
-    sigma = 50
-    tol = 1e-7
-    # Empty arrays for each point
-    i = []
-    j = []
-    v = []
-    # build array of the distances between points, measured by a gaussian with fixed width
-    #X = np.exp(-np.add.outer(beadness, -beadness)**2/(2*sigma**2))*(1/(sigma*np.sqrt(2*np.pi)))
-    # Make this matrix sparse by only keeping elements above tol
-    #I = np.argwhere(X>tol)  
-    #for II in I:
-    #    i.append(II[0])
-    #    j.append(II[1])
-    #    v.append(X[II])
-
-    # Dumb enumerative approach
-    #for ii, x in enumerate(beadness):
-    #    for jj, y in enumerate(beadness):
-    #        vv = np.exp( (x-y)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
-    #        if vv > tol
-    #            i.append(ii)
-    #            j.append(jj)
-    #            v.append(vv)
-
-
-    for ii, x in progress_bar(enumerate(beadness), expected_size = beadness.shape[0]):
-        row = np.exp(-(x -beadness)**2/(2*sigma**2))*(1/(sigma*np.sqrt(2*np.pi)))
-        J = np.argwhere(row>tol)
-        for jj in J:
-            i.append(ii)
-            j.append(jj)
-            v.append(row[jj])
-
-
-
-    # Weighted distance matrix
-    A = sp.coo_matrix( (v, (i,j)))
-    print A

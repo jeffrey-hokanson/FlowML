@@ -5,15 +5,15 @@
 import re
 import numpy as np
 import sys
+import os
 debug = False
 #debug = True
 
-if debug:
-    import pprint
 
 # TODO: remove error text message and replace with raising exceptions
 
-def read(filename, convert_metadata = True):
+# TODO: Implement read only header
+def read(filename, convert_metadata = True, only_header = False, debug = False):
     """Read in an FCS file and return numpy arrays of data and dictionaries of
     metadata
 
@@ -29,6 +29,10 @@ def read(filename, convert_metadata = True):
     
     Based on Laszlo Balkay's fca_readfcs.m from 3 Dec 2013.
     """
+
+    if debug:
+        import pprint
+
     f = open(filename, 'r')
 
     # Read the header information
@@ -85,7 +89,6 @@ def read(filename, convert_metadata = True):
     ############################################################################
     # Read in the DATA section
     ############################################################################
-    f.seek(data_start)
     n_events = int(metadata['$TOT'])
     n_parameters = int(metadata['$PAR'])
     
@@ -137,8 +140,15 @@ def read(filename, convert_metadata = True):
     if all(x == data_type[0] for x in data_type):
         data_type = [data_type[0]]
 
+    if debug:
+        print data_type
+
+    # https://stackoverflow.com/questions/14245094/how-to-read-part-of-binary-file-with-numpy
+    f.seek(data_start, os.SEEK_SET)
+    
     if len(data_type) == 1:
         data = np.fromfile(f, dtype=data_type[0], count = n_parameters*n_events)
+        assert data.shape[0] == n_parameters*n_events, "Read only %d entries; expected %dx%d matrix." % (data.shape[0], n_events, n_parameters)
         data = data.reshape(n_parameters,n_events,order='F').copy()
     else:
         # We need a separate data type for each parameter
