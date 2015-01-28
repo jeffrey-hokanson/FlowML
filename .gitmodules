@@ -6,4 +6,4 @@
 	url = https://github.com/edvakf/nbupload.git
 [submodule "external/barnes-hut-sne"]
 	path = external/barnes-hut-sne
-	url = https://github.com/ninjin/barnes-hut-sne.git
+	url = git@github.com:jeffrey-hokanson/barnes-hut-sne.git
