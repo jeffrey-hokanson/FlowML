@@ -5,7 +5,7 @@
 
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-
+import os
 import six
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -27,7 +27,8 @@ import json
 import random
 
 # TODO: relative paths
-f = open('/Users/jhokanson/SVN/Flowml/flowml/gate.js')
+this_files_path=os.path.dirname(os.path.realpath(__file__))
+f = open(this_files_path + 'gate.js')
 JAVASCRIPT = f.read()
 f.close()
 
