@@ -28,7 +28,7 @@ import random
 
 # TODO: relative paths
 this_files_path=os.path.dirname(os.path.realpath(__file__))
-f = open(this_files_path + 'flowml/gate.js')
+f = open(os.path.join(this_files_path,'gate.js'))
 JAVASCRIPT = f.read()
 f.close()
 
@@ -113,7 +113,7 @@ def crop(ax):
 
 class LinkedDragPlugin(mpld3.plugins.PluginBase):
     # TODO: relative paths
-    f = open('/Users/jhokanson/SVN/Flowml/flowml/linked_drag.js')
+    f = open(os.path.join(this_files_path,'linked_drag.js'))
     JAVASCRIPT = f.read()
     f.close()
 
