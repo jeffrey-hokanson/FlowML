@@ -28,7 +28,7 @@ import random
 
 # TODO: relative paths
 this_files_path=os.path.dirname(os.path.realpath(__file__))
-f = open(this_files_path + 'gate.js')
+f = open(this_files_path + 'flowml/gate.js')
 JAVASCRIPT = f.read()
 f.close()
 
