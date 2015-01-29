@@ -11,7 +11,7 @@ from scipy.cluster.hierarchy import fcluster
 from scipy.sparse.csgraph import minimum_spanning_tree as mst
 from scipy.sparse import coo_matrix
 
-#import pyximport; pyximport.install()
+import pyximport; pyximport.install()
 from sum_pairs import _sum_pairs
 try:
     from fastcluster import linkage, linkage_vector
