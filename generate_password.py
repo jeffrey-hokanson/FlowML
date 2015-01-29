@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /opt/local/Library/Frameworks/Python.framework/Versions/2.7/bin/python
 # 
 try:
     f = open('password.sha1')
@@ -11,7 +11,7 @@ except:
     print "The resulting SHA1 will be saved in password.sha1 for future use"
     from IPython.lib import passwd
     password = passwd() 
-    c.NotebookApp.password = password
+    #c.NotebookApp.password = password
     f = open('password.sha1','w')
     f.write(password)
     f.close()
